@@ -5,7 +5,7 @@ go 1.24.3
 require (
 	github.com/gophercloud/gophercloud/v2 v2.7.0
 	github.com/olekukonko/tablewriter v1.0.7
-	github.com/sapcc/go-api-declarations v1.16.0
+	github.com/sapcc/go-api-declarations v1.17.4
 	github.com/spf13/cobra v1.9.1
 )
 
