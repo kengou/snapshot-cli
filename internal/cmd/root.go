@@ -43,6 +43,7 @@ func newRootCmd(v *VersionInfo) *cobra.Command {
 	cmd.AddCommand(newSharedCmd())
 	cmd.AddCommand(newBlockCmd())
 	cmd.AddCommand(newSnapshotCmd())
+	cmd.AddCommand(newClenaupCmd())
 
 	return cmd
 }
