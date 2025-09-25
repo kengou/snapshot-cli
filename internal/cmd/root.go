@@ -27,7 +27,7 @@ func Execute(ctx context.Context, v *VersionInfo) {
 
 func newRootCmd(v *VersionInfo) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "snapshot-creator",
+		Use:   "snapshot-cli",
 		Short: "Command-line client for openstack-shares",
 		Args:  cobra.NoArgs,
 		Version: fmt.Sprintf("%s, Git commit %s, built at %s",
