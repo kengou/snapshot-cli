@@ -1,6 +1,8 @@
 package snapshot
 
-import "github.com/gophercloud/gophercloud/v2"
+import (
+	"github.com/gophercloud/gophercloud/v2"
+)
 
 type SnapShotOpts struct {
 	client      *gophercloud.ServiceClient
@@ -12,6 +14,7 @@ type SnapShotOpts struct {
 	Force       bool
 	Name        string
 	Description string
+	OlderThan   string
 }
 
 var snapshotNfsHeader = []string{

@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"time"
 
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
@@ -15,6 +16,16 @@ func CreateSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output strin
 	authConfig, err := config.ReadAuthConfig()
 	if err != nil {
 		return err
+	}
+
+	// Generate default name if not provided
+	if snapOpts.Name == "" {
+		if snapOpts.VolumeID != "" {
+			// Format: <volumeID>-YYYYMMDD-HHMM
+			snapOpts.Name = snapOpts.VolumeID + "-" + time.Now().UTC().Format("200601021504")
+		} else if snapOpts.ShareID != "" {
+			snapOpts.Name = snapOpts.ShareID + "-" + time.Now().UTC().Format("200601021504")
+		}
 	}
 
 	if snapOpts.VolumeID != "" {
