@@ -1,11 +1,11 @@
 # Makefile for snapshot-cli
-BINARY_NAME=snapshot-cli
-BUILD_PATH=./cmd/main.go
-
 .PHONY: build clean run docker
 
-build:
-	go build -o $(BINARY_NAME) $(BUILD_PATH)
+.PHONY: build
+build: build-snapshot-cli
+
+build-%:
+	go build -o bin/$* ./cmd/main.go
 
 clean:
 	rm -f $(BINARY_NAME)
