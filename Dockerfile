@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM --platform=${BUILDPLATFORM:-linux/amd64} gcr.io/distroless/static:nonroot
 
 WORKDIR /
-COPY --from=builder /workspace/bin/* .
+COPY --from=builder /workspace/* .
 USER 65532:65532
 
 RUN ["/snapshot-cli", "--version"]
