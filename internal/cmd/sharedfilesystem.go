@@ -33,7 +33,7 @@ func newGetNfsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("share-id", "", "ID of the block storage volume to retrieve")
-	cmd.MarkFlagRequired("share-id")
+	_ = cmd.MarkFlagRequired("share-id") //nolint:errcheck
 	doNotSortFlags(cmd)
 
 	return cmd

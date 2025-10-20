@@ -34,7 +34,7 @@ func newGetBlockCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("volume-id", "", "ID of the block storage volume to retrieve")
-	cmd.MarkFlagRequired("volume-id")
+	_ = cmd.MarkFlagRequired("volume-id") //nolint:errcheck
 	doNotSortFlags(cmd)
 
 	return cmd
@@ -79,7 +79,7 @@ func newSnapshotBlockCmd() *cobra.Command {
 	cmd.Flags().String("snapshot-name", "", "Name of the snapshot (optional)")
 	cmd.Flags().String("snapshot-dscr", "", "Description of the snapshot (optional)")
 	cmd.Flags().Bool("force", false, "Force snapshot creation")
-	cmd.MarkFlagRequired("volume-id")
+	_ = cmd.MarkFlagRequired("volume-id") //nolint:errcheck
 	doNotSortFlags(cmd)
 
 	return cmd

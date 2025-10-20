@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	defaultTrue = "true"
+)
+
 func newSnapshotCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "snapshot",
@@ -53,8 +57,8 @@ func newListSnapshotCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapShotOpts := &snapshot.SnapShotOpts{
-				Volume: cmd.Flag("volume").Value.String() == "true",
-				Share:  cmd.Flag("share").Value.String() == "true",
+				Volume: cmd.Flag("volume").Value.String() == defaultTrue,
+				Share:  cmd.Flag("share").Value.String() == defaultTrue,
 			}
 			return snapshot.ListSnapshotsCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
 		},
@@ -79,7 +83,7 @@ func newCreateSnapshotCmd() *cobra.Command {
 			snapShotOpts := &snapshot.SnapShotOpts{
 				VolumeID:    cmd.Flag("volume-id").Value.String(),
 				ShareID:     cmd.Flag("share-id").Value.String(),
-				Force:       cmd.Flag("force").Value.String() == "true",
+				Force:       cmd.Flag("force").Value.String() == defaultTrue,
 				Name:        cmd.Flag("name").Value.String(),
 				Description: cmd.Flag("description").Value.String(),
 			}
@@ -108,8 +112,8 @@ func newDeleteSnapshotCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapShotOpts := &snapshot.SnapShotOpts{
 				SnapshotID: cmd.Flag("snapshot-id").Value.String(),
-				Volume:     cmd.Flag("volume").Value.String() == "true",
-				Share:      cmd.Flag("share").Value.String() == "true",
+				Volume:     cmd.Flag("volume").Value.String() == defaultTrue,
+				Share:      cmd.Flag("share").Value.String() == defaultTrue,
 			}
 			return snapshot.DeleteSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
 		},
@@ -121,7 +125,7 @@ func newDeleteSnapshotCmd() *cobra.Command {
 	cmd.Flags().String("output", "json", "Output format: json (default), table")
 	cmd.MarkFlagsOneRequired("volume", "share")
 	cmd.MarkFlagsMutuallyExclusive("volume", "share")
-	_ = cmd.MarkFlagRequired("snapshot-id")
+	_ = cmd.MarkFlagRequired("snapshot-id") //nolint:errcheck
 	doNotSortFlags(cmd)
 
 	return cmd

@@ -20,7 +20,7 @@ type Auth struct {
 // ReadAuthConfig reads a given configuration file and returns the ViceConfig object and if applicable an error.
 func ReadAuthConfig() (authConfig *Auth, err error) {
 	authConfig = readEnv()
-	return authConfig, authConfig.verify()
+	return authConfig, authConfig.verify() //nolint:gocritic
 }
 
 // readEnv reads the environment variables for OpenStack authentication.

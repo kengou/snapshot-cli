@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: snapshot-cli-cronjob
+spec:
+  schedule: "0 10 * * 1" # Runs weekly on Monday at 10 AM CET
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: snapshot-cli
+              image: <your-image:tag>
+              env:
+                - name: OS_AUTH_URL
+                  value: ""
+                - name: OS_AUTH_VERSION
+                  value: ""
+                - name: OS_PASSWORD
+                  value: ""
+                - name: OS_PROJECT_DOMAIN_NAME
+                  value: ""
+                - name: OS_PROJECT_NAME
+                  value: ""
+                - name: OS_USER_DOMAIN_NAME
+                  value: ""
+          args: []
+          restartPolicy: OnFailure

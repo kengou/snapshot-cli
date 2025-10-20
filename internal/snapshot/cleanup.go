@@ -14,8 +14,7 @@ import (
 )
 
 func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string) error {
-
-	var client = new(gophercloud.ServiceClient)
+	client := new(gophercloud.ServiceClient) //nolint:ineffassign
 	authConfig, err := config.ReadAuthConfig()
 	if err != nil {
 		return err
@@ -41,13 +40,12 @@ func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string)
 		}
 
 		var deletedSnapshots []string
-		var failedDeletions []string
 
 		for _, snapshot := range allSnapshots {
 			if snapshot.CreatedAt.Before(olderThan) && snapshot.Status == "available" {
 				err = nfsSnapshot.Delete(ctx, client, snapshot.ID).ExtractErr()
 				if err != nil {
-					failedDeletions = append(failedDeletions, snapshot.ID)
+					_ = util.WriteJSON("Failed to delete snapshot: " + snapshot.ID) //nolint:errcheck
 				} else {
 					deletedSnapshots = append(deletedSnapshots, snapshot.ID)
 				}
@@ -77,13 +75,12 @@ func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string)
 		}
 
 		var deletedSnapshots []string
-		var failedDeletions []string
 
 		for _, snapshot := range allSnapshots {
 			if snapshot.CreatedAt.Before(olderThan) && snapshot.Status == "available" {
 				err = nfsSnapshot.Delete(ctx, client, snapshot.ID).ExtractErr()
 				if err != nil {
-					failedDeletions = append(failedDeletions, snapshot.ID)
+					_ = util.WriteJSON("Failed to delete snapshot: " + snapshot.ID) //nolint:errcheck
 				} else {
 					deletedSnapshots = append(deletedSnapshots, snapshot.ID)
 				}
