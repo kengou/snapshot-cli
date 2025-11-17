@@ -3,7 +3,7 @@ module snapshot-cli
 go 1.24.3
 
 require (
-	github.com/gophercloud/gophercloud/v2 v2.8.0
+	github.com/gophercloud/gophercloud/v2 v2.9.0
 	github.com/olekukonko/tablewriter v1.1.0
 	github.com/sapcc/go-api-declarations v1.17.4
 	github.com/spf13/cobra v1.10.1
