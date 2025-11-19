@@ -86,6 +86,7 @@ func newCreateSnapshotCmd() *cobra.Command {
 				Force:       cmd.Flag("force").Value.String() == defaultTrue,
 				Name:        cmd.Flag("name").Value.String(),
 				Description: cmd.Flag("description").Value.String(),
+				Cleanup:     cmd.Flag("cleanup").Value.String() == defaultTrue,
 			}
 			return snapshot.CreateSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
 		},
@@ -94,6 +95,7 @@ func newCreateSnapshotCmd() *cobra.Command {
 	cmd.Flags().String("volume-id", "", "ID of the volume to snapshot")
 	cmd.Flags().String("share-id", "", "ID of the shared filesystem to snapshot")
 	cmd.Flags().Bool("force", false, "Force snapshot creation (block only)")
+	cmd.Flags().Bool("cleanup", false, "Cleanup old snapshots after creation")
 	cmd.Flags().String("name", "", "Name of the snapshot")
 	cmd.Flags().String("description", "", "Description of the snapshot")
 	cmd.Flags().String("output", "json", "Output format: json (default), table")

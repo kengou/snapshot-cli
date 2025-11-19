@@ -24,13 +24,18 @@ func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string)
 
 	switch {
 	case snapOpts.Volume:
-
 		client, err = auth.NewBlockStorageClient(ctx, authConfig)
 		if err != nil {
 			return err
 		}
 
-		pages, err := blockSnapshot.List(client, blockSnapshot.ListOpts{}).AllPages(ctx)
+		listOpts := blockSnapshot.ListOpts{}
+		if snapOpts.VolumeID != "" {
+			listOpts = blockSnapshot.ListOpts{
+				VolumeID: snapOpts.VolumeID,
+			}
+		}
+		pages, err := blockSnapshot.List(client, listOpts).AllPages(ctx)
 		if err != nil {
 			return err
 		}
@@ -65,7 +70,14 @@ func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string)
 			return err
 		}
 
-		pages, err := nfsSnapshot.ListDetail(client, nfsSnapshot.ListOpts{}).AllPages(ctx)
+		listOpts := nfsSnapshot.ListOpts{}
+		if snapOpts.ShareID != "" {
+			listOpts = nfsSnapshot.ListOpts{
+				ShareID: snapOpts.ShareID,
+			}
+		}
+
+		pages, err := nfsSnapshot.ListDetail(client, listOpts).AllPages(ctx)
 		if err != nil {
 			return err
 		}

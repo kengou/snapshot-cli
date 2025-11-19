@@ -15,6 +15,7 @@ type SnapShotOpts struct {
 	Name        string
 	Description string
 	OlderThan   string
+	Cleanup     bool
 }
 
 var snapshotNfsHeader = []string{

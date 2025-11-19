@@ -15,7 +15,9 @@ func newClenaupCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapShotOpts := &snapshot.SnapShotOpts{
 				Volume:    cmd.Flag("volume").Value.String() == "true",
+				VolumeID:  cmd.Flag("volume-id").Value.String(),
 				Share:     cmd.Flag("share").Value.String() == "true",
+				ShareID:   cmd.Flag("share-id").Value.String(),
 				OlderThan: cmd.Flag("older-than").Value.String(),
 			}
 			return snapshot.CleanupSnapshot(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
@@ -24,6 +26,8 @@ func newClenaupCmd() *cobra.Command {
 
 	cmd.Flags().Bool("share", false, "list shared filesystem snapshots")
 	cmd.Flags().Bool("volume", false, "list volume snapshots")
+	cmd.Flags().String("volume-id", "", "ID of the volume to snapshot")
+	cmd.Flags().String("share-id", "", "ID of the shared filesystem to snapshot")
 	cmd.Flags().Duration("older-than", snapshot.ParseDurationOrFallback(DefaultOlderThan), "Duration to identify old snapshots, e.g. 168h (7 days), 720h (30 days)")
 	cmd.MarkFlagsOneRequired("volume", "share")
 	cmd.MarkFlagsMutuallyExclusive("volume", "share")

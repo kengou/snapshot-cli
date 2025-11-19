@@ -50,6 +50,12 @@ func CreateSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output strin
 		case util.OutputJSON:
 			return util.WriteJSON(result)
 		}
+		if snapOpts.Cleanup {
+			snapOpts.Volume = true
+			if err = CleanupSnapshot(ctx, snapOpts, output); err != nil {
+				return err
+			}
+		}
 	} else if snapOpts.ShareID != "" {
 		snapOpts.client, err = auth.NewSharedFileSystemClient(ctx, authConfig)
 		if err != nil {
@@ -70,6 +76,12 @@ func CreateSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output strin
 			return util.WriteAsTable(result, snapshotNfsHeader)
 		case util.OutputJSON:
 			return util.WriteJSON(result)
+		}
+		if snapOpts.Cleanup {
+			snapOpts.Share = true
+			if err = CleanupSnapshot(ctx, snapOpts, output); err != nil {
+				return err
+			}
 		}
 	}
 
