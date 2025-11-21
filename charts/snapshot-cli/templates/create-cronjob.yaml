@@ -11,6 +11,7 @@ spec:
     spec:
       template:
         spec:
+          timeZone: "Etc/UTC"
           containers:
             - name: {{ .Chart.Name }}-create
               securityContext:
