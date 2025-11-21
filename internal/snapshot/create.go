@@ -21,12 +21,13 @@ func CreateSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output strin
 	// Generate default name if not provided
 	if snapOpts.Name == "" {
 		if snapOpts.VolumeID != "" {
-			// Format: <volumeID>-YYYYMMDD-HHMM
-			snapOpts.Name = snapOpts.VolumeID + "-" + time.Now().UTC().Format("200601021504")
+			snapOpts.Name = snapOpts.VolumeID
 		} else if snapOpts.ShareID != "" {
-			snapOpts.Name = snapOpts.ShareID + "-" + time.Now().UTC().Format("200601021504")
+			snapOpts.Name = snapOpts.ShareID
 		}
 	}
+
+	snapOpts.Name = snapOpts.Name + "-" + time.Now().UTC().Format("200601021504")
 
 	if snapOpts.VolumeID != "" {
 		snapOpts.client, err = auth.NewBlockStorageClient(ctx, authConfig)
