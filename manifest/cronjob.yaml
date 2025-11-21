@@ -3,14 +3,16 @@ kind: CronJob
 metadata:
   name: snapshot-cli-cronjob
 spec:
-  schedule: "0 10 * * 1" # Runs weekly on Monday at 10 AM CET
+  schedule: "0 45 9 * *" # Runs every day at 9:45 AM CET
   jobTemplate:
     spec:
       template:
         spec:
           containers:
             - name: snapshot-cli
-              image: <your-image:tag>
+              image: ghcr.io/kengou/snapshot-cli:5ceee73
+              imagePullPolicy: IfNotPresent
+              command: ["/snapshot-cli", "--snapshot", "create"]
               env:
                 - name: OS_AUTH_URL
                   value: ""
@@ -24,5 +26,4 @@ spec:
                   value: ""
                 - name: OS_USER_DOMAIN_NAME
                   value: ""
-          args: []
           restartPolicy: OnFailure

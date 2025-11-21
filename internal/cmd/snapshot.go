@@ -75,6 +75,7 @@ func newListSnapshotCmd() *cobra.Command {
 }
 
 func newCreateSnapshotCmd() *cobra.Command {
+	var DefaultOlderThan string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a snapshot of a volume or shared filesystem",
@@ -87,6 +88,7 @@ func newCreateSnapshotCmd() *cobra.Command {
 				Name:        cmd.Flag("name").Value.String(),
 				Description: cmd.Flag("description").Value.String(),
 				Cleanup:     cmd.Flag("cleanup").Value.String() == defaultTrue,
+				OlderThan:   cmd.Flag("older-than").Value.String(),
 			}
 			return snapshot.CreateSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
 		},
@@ -96,6 +98,7 @@ func newCreateSnapshotCmd() *cobra.Command {
 	cmd.Flags().String("share-id", "", "ID of the shared filesystem to snapshot")
 	cmd.Flags().Bool("force", false, "Force snapshot creation (block only)")
 	cmd.Flags().Bool("cleanup", false, "Cleanup old snapshots after creation")
+	cmd.Flags().Duration("older-than", snapshot.ParseDurationOrFallback(DefaultOlderThan), "Duration to identify old snapshots, e.g. 168h (7 days), 720h (30 days)")
 	cmd.Flags().String("name", "", "Name of the snapshot")
 	cmd.Flags().String("description", "", "Description of the snapshot")
 	cmd.Flags().String("output", "json", "Output format: json (default), table")
