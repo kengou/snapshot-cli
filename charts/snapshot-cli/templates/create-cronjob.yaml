@@ -24,57 +24,64 @@ spec:
               env:
               - name: OS_AUTH_URL
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_AUTH_URL
+                valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.openstack.secretName }}
+                      key: OS_AUTH_URL
                 {{- else }}
                 value: "{{ .Values.openstack.OS_AUTH_URL }}"
                 {{- end }}
               - name: OS_USERNAME
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_USERNAME
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ .Values.openstack.secretName }}
+                    key: OS_USERNAME
                 {{- else }}
                 value: "{{ .Values.openstack.OS_USERNAME }}"
                 {{- end }}
               - name: OS_PASSWORD
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ .Values.openstack.secretName }}
+                    key: OS_PASSWORD
                 {{- else }}
                 value: "{{ .Values.openstack.OS_PASSWORD }}"
                 {{- end }}
               - name: OS_USER_DOMAIN_NAME
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_USER_DOMAIN_NAME
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ .Values.openstack.secretName }}
+                    key: OS_USER_DOMAIN_NAME
                 {{- else }}
                 value: "{{ .Values.openstack.OS_USER_DOMAIN_NAME }}"
                 {{- end }}
               - name: OS_PROJECT_NAME
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_PROJECT_NAME
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ .Values.openstack.secretName }}
+                    key: OS_PROJECT_NAME
                 {{- else }}
                 value: "{{ .Values.openstack.OS_PROJECT_NAME }}"
                 {{- end }}
               - name: OS_PROJECT_DOMAIN_NAME
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_PROJECT_DOMAIN_NAME
+                valueFrom:
+                  secretKeyRef:
+                     name: {{ .Values.openstack.secretName }}
+                     key: OS_PROJECT_DOMAIN_NAME
                 {{- else }}
                 value: "{{ .Values.openstack.OS_PROJECT_DOMAIN_NAME }}"
                 {{- end }}
               - name: OS_REGION_NAME
                 {{- if .Values.openstack.enabled }}
-                secretRef:
-                  name: {{ .Values.openstack.secretName }}
-                  key: OS_REGION_NAME
+                valueFrom:
+                  secretKeyRef:
+                    name: {{ .Values.openstack.secretName }}
+                    key: OS_REGION_NAME
                 {{- else }}
                 value: "{{ .Values.openstack.OS_REGION_NAME }}"
                 {{- end }}

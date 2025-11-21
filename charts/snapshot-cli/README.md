@@ -7,7 +7,7 @@ A Helm chart for deploying the snapshot-cli tool as CronJobs in Kubernetes.
 To install the chart from the OCI registry with the release name `snapshot-cli`:
 
 ```bash
-helm install snapshot-cli oci://ghcr.io/kengou/snapshot-cli/charts/snapshot-cli --version 0.1.2
+helm install snapshot-cli oci://ghcr.io/kengou/snapshot-cli/charts/snapshot-cli --version 0.1.3
 ```
 
 ## Configuration
@@ -41,5 +41,5 @@ The following table lists the configurable parameters of the snapshot-cli chart 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example:
 
 ```bash
-helm install snapshot-cli oci://ghcr.io/kengou/snapshot-cli/charts/snapshot-cli --version 0.1.2 --set openstack.enabled=true,openstack.OS_AUTH_URL=https://my-openstack.com
+helm install snapshot-cli oci://ghcr.io/kengou/snapshot-cli/charts/snapshot-cli --version 0.1.3 --set openstack.enabled=true,openstack.OS_AUTH_URL=https://my-openstack.com
 ```
