@@ -3,4 +3,4 @@ name: snapshot-cli
 description: A Helm chart for snapshot-cli
 type: application
 version: 0.1.0
-appVersion: "1.16.0"
+appVersion: "main"
