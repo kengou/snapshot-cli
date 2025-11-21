@@ -1,0 +1,65 @@
+image:
+  repository: ghcr.io/kengou/snapshot-cli
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: main
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources: {}
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# CronJob schedules
+cleanup:
+  schedule: "0 0 * * *"
+  # schedule for snapshot cleanup
+  # every day at midnight
+  args:
+    - cleanup
+    - --share
+    - --older-than
+    - 168h # 7 days
+
+create:
+  schedule: "0 2 * * *"
+  # schedule for snapshot creation
+  # every day at 2am
+  args:
+    - snapshot
+    - create
+    - --share-id
+    - SHARE_ID_PLACEHOLDER
+    - --name
+    - NAME_PLACEHOLDER
+    - --description
+    - DESCRIPTION_PLACEHOLDER
+    - --cleanup
+    - --older-than
+    - 168h # 7 days
+
+openstack:
+  enabled: false
+  secretName: "openstack-creds"
+  # Values for the secret, if you want to create it with the chart
+  # OS_AUTH_URL: "https://your-auth-url"
+  # OS_USERNAME: "your-username"
+  # OS_PASSWORD: "your-password"
+  # OS_USER_DOMAIN_NAME: "Default"
+  # OS_PROJECT_NAME: "your-project-name"
+  # OS_PROJECT_DOMAIN_NAME: "Default"
+  # OS_REGION_NAME: "your-region"

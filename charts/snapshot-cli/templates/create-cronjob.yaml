@@ -1,0 +1,54 @@
+{{- if .Values.create.schedule }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "snapshot-cli.fullname" . }}-create
+  labels:
+    {{- include "snapshot-cli.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.create.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: {{ .Chart.Name }}-create
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                {{- toYaml .Values.create.args | nindent 16 }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              env:
+              - name: OS_AUTH_URL
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_AUTH_URL
+              - name: OS_USERNAME
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_USERNAME
+              - name: OS_PASSWORD
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_PASSWORD
+              - name: OS_USER_DOMAIN_NAME
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_USER_DOMAIN_NAME
+              - name: OS_PROJECT_NAME
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_PROJECT_NAME
+              - name: OS_PROJECT_DOMAIN_NAME
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_PROJECT_DOMAIN_NAME
+              - name: OS_REGION_NAME
+                secretRef:
+                  name: {{ .Values.openstack.secretName }}
+                  key: OS_REGION_NAME
+          restartPolicy: OnFailure
+{{- end }}
