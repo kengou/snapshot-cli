@@ -7,11 +7,11 @@ metadata:
     {{- include "snapshot-cli.labels" . | nindent 4 }}
 spec:
   schedule: {{ .Values.create.schedule | quote }}
+  timeZone: "Etc/UTC"
   jobTemplate:
     spec:
       template:
         spec:
-          timeZone: "Etc/UTC"
           containers:
             - name: {{ .Chart.Name }}-create
               securityContext:

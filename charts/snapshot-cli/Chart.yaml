@@ -2,5 +2,5 @@ apiVersion: v2
 name: snapshot-cli
 description: A Helm chart for snapshot-cli
 type: application
-version: 0.1.4
+version: 0.1.5
 appVersion: "main"
