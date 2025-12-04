@@ -6,7 +6,7 @@ require (
 	github.com/gophercloud/gophercloud/v2 v2.9.0
 	github.com/olekukonko/tablewriter v1.1.1
 	github.com/sapcc/go-api-declarations v1.18.0
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 )
 
 require (
