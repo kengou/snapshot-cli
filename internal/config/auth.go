@@ -12,7 +12,7 @@ type Auth struct {
 	RegionName        string `yaml:"region_name"`
 	Username          string `yaml:"username"`
 	UserDomainName    string `yaml:"user_domain_name"`
-	Password          string `yaml:"password"`
+	Password          string `yaml:"password"` //nolint:gosec
 	ProjectName       string `yaml:"project_name"`
 	ProjectDomainName string `yaml:"project_domain_name"`
 }
