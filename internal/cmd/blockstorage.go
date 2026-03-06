@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"snapshot-cli/internal/blockstorage"
+	"snapshot-cli/internal/snapshot"
 
 	"github.com/spf13/cobra"
 )
@@ -21,9 +22,7 @@ func newBlockCmd() *cobra.Command {
 	return cmd
 }
 
-/*
-Get command to retrieve block storage information.
-*/
+// newGetBlockCmd returns the "volumes get" subcommand.
 func newGetBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
@@ -34,15 +33,15 @@ func newGetBlockCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("volume-id", "", "ID of the block storage volume to retrieve")
+	// H3: define --output so cmd.Flag("output") never returns nil.
+	cmd.Flags().String("output", "json", "output format: json (default), table")
 	_ = cmd.MarkFlagRequired("volume-id") //nolint:errcheck
 	doNotSortFlags(cmd)
 
 	return cmd
 }
 
-/*
-List command to list block storage resources.
-*/
+// newListBlockCmd returns the "volumes list" subcommand.
 func newListBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -52,33 +51,36 @@ func newListBlockCmd() *cobra.Command {
 			return blockstorage.RunListBlockStorage(cmd.Context(), cmd.Flag("output").Value.String())
 		},
 	}
+	// H3: define --output so cmd.Flag("output") never returns nil.
+	cmd.Flags().String("output", "json", "output format: json (default), table")
 	doNotSortFlags(cmd)
 
 	return cmd
 }
 
-/*
-Snapshot command to create a snapshot of a volume.
-*/
+// newSnapshotBlockCmd returns the "volumes snapshot" subcommand.
+// H4: delegates to snapshot.CreateSnapshotCmd to eliminate duplicate logic.
+// L7: uses --description flag name (consistent with "snapshot create").
 func newSnapshotBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "snapshot",
 		Short: "Create a snapshot of a block storage volume",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			snapShotOpts := &blockstorage.SnapShotOpts{
+			snapShotOpts := &snapshot.SnapShotOpts{
 				VolumeID:    cmd.Flag("volume-id").Value.String(),
 				Force:       cmd.Flag("force").Value.String() == "true",
 				Name:        cmd.Flag("name").Value.String(),
-				Description: cmd.Flag("snapshot-dscr").Value.String(),
+				Description: cmd.Flag("description").Value.String(),
 			}
-			return blockstorage.CreateSnapshotBlockStorage(cmd.Context(), snapShotOpts)
+			return snapshot.CreateSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
 		},
 	}
 	cmd.Flags().String("volume-id", "", "ID of the block storage volume to snapshot")
-	cmd.Flags().String("snapshot-name", "", "Name of the snapshot (optional)")
-	cmd.Flags().String("snapshot-dscr", "", "Description of the snapshot (optional)")
+	cmd.Flags().String("name", "", "Name of the snapshot (optional)")
+	cmd.Flags().String("description", "", "Description of the snapshot (optional)")
 	cmd.Flags().Bool("force", false, "Force snapshot creation")
+	cmd.Flags().String("output", "json", "output format: json (default), table")
 	_ = cmd.MarkFlagRequired("volume-id") //nolint:errcheck
 	doNotSortFlags(cmd)
 
