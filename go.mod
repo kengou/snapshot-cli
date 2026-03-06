@@ -3,7 +3,7 @@ module snapshot-cli
 go 1.26
 
 require (
-	github.com/gophercloud/gophercloud/v2 v2.10.0
+	github.com/gophercloud/gophercloud/v2 v2.11.0
 	github.com/olekukonko/tablewriter v1.1.3
 	github.com/sapcc/go-api-declarations v1.20.1
 	github.com/spf13/cobra v1.10.2
@@ -12,7 +12,6 @@ require (
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
-	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
