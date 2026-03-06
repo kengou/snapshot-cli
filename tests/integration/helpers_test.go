@@ -58,7 +58,7 @@ func createVolume(t *testing.T) string {
 	v, err := volumes.Create(ctx, blockClient, volumes.CreateOpts{
 		Size: 1,
 		Name: "snapcli-it-" + t.Name(),
-	}).Extract()
+	}, nil).Extract()
 	if err != nil {
 		t.Fatalf("create volume: %v", err)
 	}
