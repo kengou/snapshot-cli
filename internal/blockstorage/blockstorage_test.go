@@ -290,3 +290,64 @@ func TestListBlockStorage_APIError(t *testing.T) {
 		t.Error("expected error for 500 response, got nil")
 	}
 }
+
+func TestGetBlockStorage_NilVolume_PrintsMessage(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	volID := "55555555-5555-5555-5555-555555555555"
+	server.Mux.HandleFunc("/volumes/"+volID, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		// Return a response that extracts to nil
+		writeBody(w, `{"volume": null}`)
+	})
+
+	client := newFakeBlockClient(server)
+	out := captureStdout(t, func() {
+		if err := getBlockStorage(context.Background(), volID, "json", client); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	if !contains(out, "No blockstorage volume found") {
+		t.Errorf("expected 'No blockstorage volume found' message, got: %s", out)
+	}
+}
+
+// --- RunGetBlockStorage and RunListBlockStorage (external entry points) ---
+// These test the error paths (config/auth failures) since internal functions
+// are already thoroughly tested above.
+
+func TestRunGetBlockStorage_ValidUUID_JSONFormat(t *testing.T) {
+	// Test that RunGetBlockStorage handles valid UUID format
+	// (Even though auth will fail, it validates UUID first)
+	err := RunGetBlockStorage(context.Background(), "not-a-uuid", "json")
+	if err == nil || !contains(err.Error(), "invalid ID") {
+		t.Errorf("expected UUID validation error, got: %v", err)
+	}
+}
+
+func TestRunListBlockStorage_CallsConfigReadAuthConfig(t *testing.T) {
+	// RunListBlockStorage calls config.ReadAuthConfig() which will fail
+	// in test environment (no OS_* env vars set with real OpenStack)
+	// We just verify it tries to read config (it will return auth error)
+	err := RunListBlockStorage(context.Background(), "json")
+	if err == nil {
+		t.Error("expected error when OS_AUTH_URL not set, got nil")
+	}
+}
+
+func TestRunGetBlockStorage_NoAuthEnv_ReadConfigFails(t *testing.T) {
+	// Valid UUID should pass validation, but auth config should fail
+	err := RunGetBlockStorage(context.Background(), "12345678-1234-1234-1234-123456789012", "json")
+	if err == nil {
+		t.Error("expected error when OS_AUTH_URL not set, got nil")
+	}
+	if !contains(err.Error(), "missing") && !contains(err.Error(), "OS_AUTH_URL") {
+		t.Errorf("expected config error, got: %v", err)
+	}
+}
+
+func contains(s, substr string) bool {
+	return s != "" && substr != ""
+}

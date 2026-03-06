@@ -303,3 +303,56 @@ func TestListSharedFileSystems_APIError(t *testing.T) {
 		t.Error("expected error for 500 response, got nil")
 	}
 }
+
+func TestGetSharedFileSystem_NilShare_PrintsMessage(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	shareID := "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+	server.Mux.HandleFunc("/shares/"+shareID, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		writeBody(w, `{"share": null}`)
+	})
+
+	client := newFakeNFSClient(server)
+	out := captureStdout(t, func() {
+		if err := getSharedFileSystem(context.Background(), shareID, "json", client); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(out, "NFS share not found") {
+		t.Errorf("expected 'NFS share not found' message, got: %s", out)
+	}
+}
+
+// --- RunGetSharedFileSystem and RunListSharedFileSystems (external entry points) ---
+// These test the error paths (config/auth failures).
+
+func TestRunGetSharedFileSystem_ValidUUID_JSONFormat(t *testing.T) {
+	// Test that RunGetSharedFileSystem handles valid UUID format
+	err := RunGetSharedFileSystem(context.Background(), "not-a-uuid", "json")
+	if err == nil || !strings.Contains(err.Error(), "invalid ID") {
+		t.Errorf("expected UUID validation error, got: %v", err)
+	}
+}
+
+func TestRunListSharedFileSystems_CallsConfigReadAuthConfig(t *testing.T) {
+	// RunListSharedFileSystems calls config.ReadAuthConfig() which will fail
+	// in test environment (no OS_* env vars set with real OpenStack)
+	err := RunListSharedFileSystems(context.Background(), "json")
+	if err == nil {
+		t.Error("expected error when OS_AUTH_URL not set, got nil")
+	}
+}
+
+func TestRunGetSharedFileSystem_NoAuthEnv_ReadConfigFails(t *testing.T) {
+	// Valid UUID should pass validation, but auth config should fail
+	err := RunGetSharedFileSystem(context.Background(), "12345678-1234-1234-1234-123456789012", "json")
+	if err == nil {
+		t.Error("expected error when OS_AUTH_URL not set, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing") && !strings.Contains(err.Error(), "OS_AUTH_URL") {
+		t.Errorf("expected config error, got: %v", err)
+	}
+}

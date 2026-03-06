@@ -1,4 +1,4 @@
-name: "Unit tests"
+name: "Test and Build"
 on:
   push:
     branches:
@@ -16,8 +16,8 @@ permissions:
   contents: read
 
 jobs:
-  lint:
-    runs-on: [ ubuntu-latest ]
+  test:
+    runs-on: [ubuntu-latest]
     permissions:
       contents: read
     steps:
@@ -34,33 +34,19 @@ jobs:
         uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
         with:
           go-version-file: 'go.mod'
+
+      # ── Unit and E2E tests ────────────────────────────────────────────────────
+      # E2E tests mock the OpenStack APIs via httptest.Server, so they run in
+      # ~3 seconds without any external dependencies.
+      - name: Run tests
+        run: make test
+
+      # ── Lint (must pass after every code change) ──────────────────────────────
       - name: golangci-lint
         run: make lint
 
-  test:
-    runs-on: [ ubuntu-latest ]
-    permissions:
-      contents: read
-    steps:
-      - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@a90bcbc6539c36a85cdfeb73f7e2f433735f215b # v2.15.0
-        with:
-          egress-policy: audit
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          persist-credentials: false
-
-      - name: Set up Go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6
-        with:
-          go-version-file: 'go.mod'
-
-      - name: test
-        run: make test
-
   build:
-    runs-on: [ ubuntu-latest ]
+    runs-on: [ubuntu-latest]
     permissions:
       contents: read
     steps:
@@ -78,5 +64,5 @@ jobs:
         with:
           go-version-file: 'go.mod'
 
-      - name: build
+      - name: Build
         run: make build
