@@ -1,9 +1,16 @@
 package snapshot
 
 import (
+	"time"
+
 	"github.com/gophercloud/gophercloud/v2"
 )
 
+// DefaultOlderThan is the fallback retention window used when no --older-than flag is provided.
+const DefaultOlderThan = 168 * time.Hour
+
+// SnapShotOpts carries options common to all snapshot sub-commands.
+// Exactly one of Volume/VolumeID or Share/ShareID should be set per invocation.
 type SnapShotOpts struct {
 	client      *gophercloud.ServiceClient
 	SnapshotID  string

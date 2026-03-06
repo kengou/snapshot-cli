@@ -8,15 +8,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// VersionInfo holds build-time version metadata injected via ldflags or bininfo.
 type VersionInfo struct {
 	Version       string
 	GitCommitHash string
 	BuildDate     string
 }
-
-var (
-	debug bool
-)
 
 func Execute(ctx context.Context, v *VersionInfo) {
 	if err := newRootCmd(v).ExecuteContext(ctx); err != nil {
@@ -37,13 +34,11 @@ func newRootCmd(v *VersionInfo) *cobra.Command {
 	}
 
 	doNotSortFlags(cmd)
-	cmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug mode")
-	cmd.PersistentFlags().StringVar(&v.Version, "output", "json", "output format: json (default), table")
 
 	cmd.AddCommand(newSharedCmd())
 	cmd.AddCommand(newBlockCmd())
 	cmd.AddCommand(newSnapshotCmd())
-	cmd.AddCommand(newClenaupCmd())
+	cmd.AddCommand(newCleanupCmd())
 
 	return cmd
 }
