@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
@@ -10,6 +11,8 @@ import (
 	"snapshot-cli/internal/config"
 )
 
+// NewSharedFileSystemClient creates an authenticated Manila (Shared File System v2) service client.
+// It performs a full Keystone v3 authentication on every call.
 func NewSharedFileSystemClient(ctx context.Context, auth *config.Auth) (*gophercloud.ServiceClient, error) {
 	provider, err := newAuthenticatedProviderClient(ctx, auth)
 	if err != nil {
@@ -27,6 +30,8 @@ func NewSharedFileSystemClient(ctx context.Context, auth *config.Auth) (*gopherc
 	return client, nil
 }
 
+// NewBlockStorageClient creates an authenticated Cinder (Block Storage v3) service client.
+// It performs a full Keystone v3 authentication on every call.
 func NewBlockStorageClient(ctx context.Context, auth *config.Auth) (*gophercloud.ServiceClient, error) {
 	provider, err := newAuthenticatedProviderClient(ctx, auth)
 	if err != nil {
@@ -61,14 +66,13 @@ func newAuthenticatedProviderClient(ctx context.Context, auth *config.Auth) (*go
 	if err != nil {
 		return nil, err
 	}
+	provider.UserAgent.Prepend("snapshot-creator")
+	provider.HTTPClient.Timeout = 30 * time.Second
 	provider.UseTokenLock()
 
-	err = openstack.AuthenticateV3(ctx, provider, opts, gophercloud.EndpointOpts{})
-	provider.UserAgent.Prepend("snapshot-creator")
-
-	if provider.TokenID == "" {
+	if err = openstack.AuthenticateV3(ctx, provider, opts, gophercloud.EndpointOpts{}); err != nil {
 		return nil, err
 	}
 
-	return provider, err
+	return provider, nil
 }

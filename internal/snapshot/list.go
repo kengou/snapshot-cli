@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"context"
+	"fmt"
 
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
@@ -11,19 +12,28 @@ import (
 	"snapshot-cli/internal/util"
 )
 
+// ListSnapshotsCmd lists all snapshots for either block storage (snapOpts.Volume)
+// or shared filesystems (snapOpts.Share).
+// If snapOpts.client is already set (e.g. in tests), auth is skipped.
 func ListSnapshotsCmd(ctx context.Context, snapOpts *SnapShotOpts, output string) error {
-	authConfig, err := config.ReadAuthConfig()
-	if err != nil {
-		return err
+	if snapOpts.client == nil {
+		authConfig, err := config.ReadAuthConfig()
+		if err != nil {
+			return err
+		}
+		switch {
+		case snapOpts.Volume:
+			snapOpts.client, err = auth.NewBlockStorageClient(ctx, authConfig)
+		case snapOpts.Share:
+			snapOpts.client, err = auth.NewSharedFileSystemClient(ctx, authConfig)
+		}
+		if err != nil {
+			return err
+		}
 	}
 
 	switch {
 	case snapOpts.Volume:
-		snapOpts.client, err = auth.NewBlockStorageClient(ctx, authConfig)
-		if err != nil {
-			return err
-		}
-
 		pages, err := blockSnapshot.List(snapOpts.client, blockSnapshot.ListOpts{}).AllPages(ctx)
 		if err != nil {
 			return err
@@ -38,13 +48,11 @@ func ListSnapshotsCmd(ctx context.Context, snapOpts *SnapShotOpts, output string
 			return util.WriteAsTable(allSnapshots, snapshotBlockHeader)
 		case util.OutputJSON:
 			return util.WriteJSON(allSnapshots)
-		}
-	case snapOpts.Share:
-		snapOpts.client, err = auth.NewSharedFileSystemClient(ctx, authConfig)
-		if err != nil {
-			return err
+		default:
+			return fmt.Errorf("unsupported output format: %q", output)
 		}
 
+	case snapOpts.Share:
 		pages, err := nfsSnapshot.ListDetail(snapOpts.client, nfsSnapshot.ListOpts{}).AllPages(ctx)
 		if err != nil {
 			return err
@@ -59,6 +67,8 @@ func ListSnapshotsCmd(ctx context.Context, snapOpts *SnapShotOpts, output string
 			return util.WriteAsTable(allSnapshots, snapshotNfsHeader)
 		case util.OutputJSON:
 			return util.WriteJSON(allSnapshots)
+		default:
+			return fmt.Errorf("unsupported output format: %q", output)
 		}
 	}
 	return nil

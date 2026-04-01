@@ -26,6 +26,8 @@ func newSnapshotCmd() *cobra.Command {
 	return cmd
 }
 
+// newGetSnapshotCmd returns the "snapshot get" subcommand.
+// M9: uses --snapshot-id with --volume/--share boolean flags (consistent with snapshot delete).
 func newGetSnapshotCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
@@ -33,18 +35,21 @@ func newGetSnapshotCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapShotOpts := &snapshot.SnapShotOpts{
-				VolumeID: cmd.Flag("volume-id").Value.String(),
-				ShareID:  cmd.Flag("share-id").Value.String(),
+				SnapshotID: cmd.Flag("snapshot-id").Value.String(),
+				Volume:     cmd.Flag("volume").Value.String() == defaultTrue,
+				Share:      cmd.Flag("share").Value.String() == defaultTrue,
 			}
 			return snapshot.GetSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
 		},
 	}
 
-	cmd.Flags().String("share-id", "", "ID of the shared filesystem associated with the snapshot")
-	cmd.Flags().String("volume-id", "", "ID of the volume associated with the snapshot")
-	cmd.Flags().String("output", "json", "Output format: json (default), table")
-	cmd.MarkFlagsOneRequired("volume-id", "share-id")
-	cmd.MarkFlagsMutuallyExclusive("volume-id", "share-id")
+	cmd.Flags().String("snapshot-id", "", "ID of the snapshot to retrieve")
+	cmd.Flags().Bool("volume", false, "retrieve a block storage snapshot")
+	cmd.Flags().Bool("share", false, "retrieve a shared filesystem snapshot")
+	cmd.Flags().String("output", "json", "output format: json (default), table")
+	_ = cmd.MarkFlagRequired("snapshot-id") //nolint:errcheck
+	cmd.MarkFlagsOneRequired("volume", "share")
+	cmd.MarkFlagsMutuallyExclusive("volume", "share")
 	doNotSortFlags(cmd)
 
 	return cmd
@@ -66,7 +71,7 @@ func newListSnapshotCmd() *cobra.Command {
 
 	cmd.Flags().Bool("share", false, "list shared filesystem snapshots")
 	cmd.Flags().Bool("volume", false, "list volume snapshots")
-	cmd.Flags().String("output", "json", "Output format: json (default), table")
+	cmd.Flags().String("output", "json", "output format: json (default), table")
 	cmd.MarkFlagsOneRequired("volume", "share")
 	cmd.MarkFlagsMutuallyExclusive("volume", "share")
 	doNotSortFlags(cmd)
@@ -75,7 +80,6 @@ func newListSnapshotCmd() *cobra.Command {
 }
 
 func newCreateSnapshotCmd() *cobra.Command {
-	var DefaultOlderThan string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a snapshot of a volume or shared filesystem",
@@ -98,10 +102,11 @@ func newCreateSnapshotCmd() *cobra.Command {
 	cmd.Flags().String("share-id", "", "ID of the shared filesystem to snapshot")
 	cmd.Flags().Bool("force", false, "Force snapshot creation (block only)")
 	cmd.Flags().Bool("cleanup", false, "Cleanup old snapshots after creation")
-	cmd.Flags().Duration("older-than", snapshot.ParseDurationOrFallback(DefaultOlderThan), "Duration to identify old snapshots, e.g. 168h (7 days), 720h (30 days)")
+	// M8: use the exported constant instead of an always-empty variable.
+	cmd.Flags().Duration("older-than", snapshot.DefaultOlderThan, "delete snapshots older than this duration, e.g. 168h (7 days), 720h (30 days)")
 	cmd.Flags().String("name", "", "Name of the snapshot")
 	cmd.Flags().String("description", "", "Description of the snapshot")
-	cmd.Flags().String("output", "json", "Output format: json (default), table")
+	cmd.Flags().String("output", "json", "output format: json (default), table")
 	cmd.MarkFlagsOneRequired("volume-id", "share-id")
 	cmd.MarkFlagsMutuallyExclusive("volume-id", "share-id")
 	doNotSortFlags(cmd)
@@ -124,10 +129,10 @@ func newDeleteSnapshotCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Bool("share", false, "list shared filesystem snapshots")
-	cmd.Flags().Bool("volume", false, "list volume snapshots")
+	cmd.Flags().Bool("share", false, "delete a shared filesystem snapshot")
+	cmd.Flags().Bool("volume", false, "delete a block storage snapshot")
 	cmd.Flags().String("snapshot-id", "", "ID of the snapshot to delete")
-	cmd.Flags().String("output", "json", "Output format: json (default), table")
+	cmd.Flags().String("output", "json", "output format: json (default), table")
 	cmd.MarkFlagsOneRequired("volume", "share")
 	cmd.MarkFlagsMutuallyExclusive("volume", "share")
 	_ = cmd.MarkFlagRequired("snapshot-id") //nolint:errcheck

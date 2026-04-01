@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 
 	"snapshot-cli/internal/auth"
@@ -35,6 +36,8 @@ var volumeHeader = []string{
 	"os-vol-tenant-attr:tenant_id",
 }
 
+// RunListBlockStorage lists all Cinder volumes in the current project and writes
+// them to stdout in the requested output format.
 func RunListBlockStorage(ctx context.Context, output string) error {
 	authConfig, err := config.ReadAuthConfig()
 	if err != nil {
@@ -44,8 +47,12 @@ func RunListBlockStorage(ctx context.Context, output string) error {
 	if err != nil {
 		return err
 	}
+	return listBlockStorage(ctx, output, blockClient)
+}
 
-	vol, err := volumes.List(blockClient, volumes.ListOpts{}).AllPages(context.TODO())
+// listBlockStorage is the testable core: it accepts a pre-built client.
+func listBlockStorage(ctx context.Context, output string, blockClient *gophercloud.ServiceClient) error {
+	vol, err := volumes.List(blockClient, volumes.ListOpts{}).AllPages(ctx)
 	if err != nil {
 		return err
 	}
@@ -64,6 +71,7 @@ func RunListBlockStorage(ctx context.Context, output string) error {
 		return util.WriteAsTable(volumeList, volumeHeader)
 	case util.OutputJSON:
 		return util.WriteJSON(volumeList)
+	default:
+		return fmt.Errorf("unsupported output format: %q", output)
 	}
-	return nil
 }

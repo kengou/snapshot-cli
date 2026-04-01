@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/shares"
 
 	"snapshot-cli/internal/auth"
@@ -11,7 +12,12 @@ import (
 	"snapshot-cli/internal/util"
 )
 
+// RunGetSharedFileSystem retrieves the Manila share identified by shareID and writes
+// its details to stdout in the requested output format.
 func RunGetSharedFileSystem(ctx context.Context, shareID, output string) error {
+	if err := util.ValidateUUID(shareID); err != nil {
+		return err
+	}
 	authConfig, err := config.ReadAuthConfig()
 	if err != nil {
 		return err
@@ -20,7 +26,11 @@ func RunGetSharedFileSystem(ctx context.Context, shareID, output string) error {
 	if err != nil {
 		return err
 	}
+	return getSharedFileSystem(ctx, shareID, output, sharedClient)
+}
 
+// getSharedFileSystem is the testable core: it accepts a pre-built client.
+func getSharedFileSystem(ctx context.Context, shareID, output string, sharedClient *gophercloud.ServiceClient) error {
 	nfs, err := shares.Get(ctx, sharedClient, shareID).Extract()
 	if err != nil {
 		return err
@@ -36,7 +46,7 @@ func RunGetSharedFileSystem(ctx context.Context, shareID, output string) error {
 		return util.WriteAsTable(nfs, nfsHeader)
 	case util.OutputJSON:
 		return util.WriteJSON(nfs)
+	default:
+		return fmt.Errorf("unsupported output format: %q", output)
 	}
-
-	return nil
 }
