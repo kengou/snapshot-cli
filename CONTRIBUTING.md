@@ -80,6 +80,80 @@ Common lint fixes:
 6. Add a godoc comment to every exported function.
 7. Add or extend tests in `*_test.go` files.
 
+## Version Detection & Validation
+
+snapshot-cli automatically detects and validates OpenStack API versions (Cinder v3, Manila v2) at runtime.
+
+**How it works:**
+- During initialization, `auth.DetectVersions()` checks that required services are available
+- If version detection fails, the command exits with a helpful error message
+- Use the `--skip-version-check` flag to bypass validation (e.g., for testing or special environments)
+
+**Adding version detection to a command:**
+```go
+authConfig, err := config.ReadAuthConfig()
+if err != nil {
+    return fmt.Errorf("auth config: %w", err)
+}
+
+// Validate service versions (unless --skip-version-check is set)
+if !skipVersionCheck {
+    provider, err := auth.newAuthenticatedProviderClient(ctx, authConfig)
+    if err != nil {
+        return fmt.Errorf("authentication: %w", err)
+    }
+    _, err = auth.DetectVersions(ctx, provider)
+    if err != nil {
+        return fmt.Errorf("version validation: %w (use --skip-version-check to bypass)", err)
+    }
+}
+```
+
+Version detection is optional per-command; not all commands need to validate both Cinder and Manila availability.
+
+## Observability & Tracing
+
+snapshot-cli uses OpenTelemetry for distributed tracing. Add tracing to core operations to enable production observability.
+
+**How tracing works:**
+- Spans track operation duration, attributes, and error status
+- Spans are exported to an OTEL collector (gRPC protocol) if `OTEL_EXPORTER_OTLP_ENDPOINT` is set
+- No overhead when tracing is disabled
+
+**Adding tracing to a module:**
+
+```go
+import (
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/codes"
+)
+
+var tracer = otel.Tracer("snapshot-cli/internal/mymodule")
+
+func MyOperation(ctx context.Context, param string) (err error) {
+    ctx, span := tracer.Start(ctx, "my_operation")
+    defer func() {
+        if err != nil {
+            span.RecordError(err)
+            span.SetStatus(codes.Error, err.Error())
+        } else {
+            span.SetStatus(codes.Ok, "")
+        }
+        span.End()
+    }()
+
+    // ... operation code ...
+    return err
+}
+```
+
+**Span conventions:**
+- Operation names: lowercase, snake_case (e.g., `snapshot.create`, `auth.keystone.authenticate`)
+- Attributes: use semantic attribute keys (e.g., `snapshot.id`, `snapshot.volume_id`)
+- Error handling: record errors before returning
+
+See [`internal/observability/`](internal/observability/) for example implementations.
+
 ## Adding tests
 
 Unit tests for pure functions (no OpenStack dependency) go directly in the package.

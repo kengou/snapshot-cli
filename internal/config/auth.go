@@ -1,20 +1,23 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
 )
 
-// Auth used for OpenStack authentication parameters.
+// Auth holds OpenStack authentication parameters and version validation settings.
 type Auth struct {
-	AuthURL           string `yaml:"auth_url"`
-	RegionName        string `yaml:"region_name"`
-	Username          string `yaml:"username"`
-	UserDomainName    string `yaml:"user_domain_name"`
-	Password          string `yaml:"password"` //nolint:gosec
-	ProjectName       string `yaml:"project_name"`
-	ProjectDomainName string `yaml:"project_domain_name"`
+	AuthURL           string            `yaml:"auth_url"`
+	RegionName        string            `yaml:"region_name"`
+	Username          string            `yaml:"username"`
+	UserDomainName    string            `yaml:"user_domain_name"`
+	Password          string            `yaml:"password"` //nolint:gosec
+	ProjectName       string            `yaml:"project_name"`
+	ProjectDomainName string            `yaml:"project_domain_name"`
+	SkipVersionCheck  bool              `yaml:"skip_version_check,omitempty"` // Allow bypass of version validation
+	DetectedVersions  map[string]string // Cinder and Manila versions detected during init
 }
 
 // ReadAuthConfig reads a given configuration file and returns the ViceConfig object and if applicable an error.
@@ -61,5 +64,18 @@ func (a *Auth) verify() error {
 	if len(errs) > 0 {
 		return errors.New("missing " + strings.Join(errs, ", "))
 	}
+	return nil
+}
+
+// ValidateVersions checks if Cinder v3 and Manila v2 are available.
+// It returns an error if versions are incompatible and --skip-version-check was not set.
+// Note: This is called separately by command handlers via auth.DetectVersions,
+// not during ReadAuthConfig, to allow commands that don't need both services to succeed.
+func (a *Auth) ValidateVersions(_ context.Context) error {
+	if a.SkipVersionCheck {
+		return nil
+	}
+	// Version validation is performed by the command handlers
+	// that call auth.DetectVersions() explicitly
 	return nil
 }

@@ -19,7 +19,15 @@ import (
 // If snapOpts.Cleanup is true, old snapshots older than snapOpts.OlderThan are
 // deleted after the new snapshot is created.
 // If snapOpts.client is already set (e.g. in tests), auth is skipped.
-func CreateSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output string) error {
+func CreateSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output string) (err error) {
+	ctx, span := startCreateSpan(ctx, snapOpts.VolumeID, snapOpts.ShareID, snapOpts.Name)
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+		span.End()
+	}()
+
 	// Generate default name if not provided
 	if snapOpts.Name == "" {
 		if snapOpts.VolumeID != "" {

@@ -262,6 +262,39 @@ docker build -t snapshot-cli:latest .
 docker run --env-file openstack.env snapshot-cli:latest snapshot list --volume
 ```
 
+## Observability
+
+snapshot-cli includes OpenTelemetry distributed tracing for production observability. Traces are **disabled by default** and require an external collector.
+
+### Quick Start
+
+Run Jaeger locally and export traces:
+
+```bash
+# Start Jaeger (with OTEL gRPC receiver on port 4317)
+docker run --rm -p 4317:4317 -p 16686:16686 jaegertracing/all-in-one
+
+# Export traces to Jaeger
+export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+snapshot-cli snapshot create --volume-id abc-123
+
+# View traces: http://localhost:16686
+```
+
+### Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | gRPC collector endpoint (e.g., `localhost:4317`) |
+| `OTEL_SDK_DISABLED` | Set to `false` to disable SDK |
+
+### Instrumented Operations
+
+- Authentication (Keystone, Cinder init, Manila init)
+- Snapshot CRUD (create, delete, list, get, cleanup)
+
+See [`internal/observability/README.md`](internal/observability/README.md) for complete documentation.
+
 ## Data Flow
 
 ### `snapshot create --cleanup`
@@ -313,6 +346,8 @@ sequenceDiagram
 |---------|-------------|-----|
 | `missing OS_AUTH_URL, OS_PASSWORD, ...` | OpenStack RC not sourced | `source openstack-rc.sh` |
 | `Authentication failed` | Wrong credentials or expired password | Verify `OS_USERNAME` / `OS_PASSWORD` |
+| `block storage (Cinder) service not available` | Cinder v3 not enabled or incompatible version | Check OpenStack has Cinder enabled; use `--skip-version-check` to bypass |
+| `shared filesystem (Manila) service not available` | Manila v2 not enabled or incompatible version | Check OpenStack has Manila enabled; use `--skip-version-check` to bypass |
 | `No endpoint found for block-storage` | Region mismatch or Cinder not enabled | Set `OS_REGION_NAME` correctly |
 | `Resource not found` | Invalid volume/share/snapshot ID | Confirm ID with `volumes list` or `nfs list` |
 | `Volume is in use` | Volume has active attachments | Use `--force` flag (block storage only) |
