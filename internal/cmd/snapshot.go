@@ -1,9 +1,13 @@
 package cmd
 
 import (
-	"snapshot-cli/internal/snapshot"
+	"context"
+	"errors"
 
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/spf13/cobra"
+
+	"snapshot-cli/internal/snapshot"
 )
 
 const (
@@ -26,20 +30,39 @@ func newSnapshotCmd() *cobra.Command {
 	return cmd
 }
 
+// clientForKind returns the appropriate gophercloud client based on the
+// volume/share boolean pair already validated by cobra's mutually-exclusive flags.
+func clientForKind(ctx context.Context, volume, share bool) (*gophercloud.ServiceClient, error) {
+	switch {
+	case volume:
+		return buildBlockClient(ctx)
+	case share:
+		return buildSharedClient(ctx)
+	default:
+		return nil, errors.New("must set --volume or --share")
+	}
+}
+
 // newGetSnapshotCmd returns the "snapshot get" subcommand.
-// M9: uses --snapshot-id with --volume/--share boolean flags (consistent with snapshot delete).
 func newGetSnapshotCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get details of a snapshot",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			volume, _ := cmd.Flags().GetBool("volume") //nolint:errcheck // flag defined below
+			share, _ := cmd.Flags().GetBool("share")   //nolint:errcheck // flag defined below
+			client, err := clientForKind(ctx, volume, share)
+			if err != nil {
+				return err
+			}
 			snapShotOpts := &snapshot.SnapShotOpts{
 				SnapshotID: cmd.Flag("snapshot-id").Value.String(),
-				Volume:     cmd.Flag("volume").Value.String() == defaultTrue,
-				Share:      cmd.Flag("share").Value.String() == defaultTrue,
+				Volume:     volume,
+				Share:      share,
 			}
-			return snapshot.GetSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
+			return snapshot.GetSnapshotCmd(ctx, snapShotOpts, cmd.Flag("output").Value.String(), client)
 		},
 	}
 
@@ -61,11 +84,18 @@ func newListSnapshotCmd() *cobra.Command {
 		Short: "List snapshots",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			snapShotOpts := &snapshot.SnapShotOpts{
-				Volume: cmd.Flag("volume").Value.String() == defaultTrue,
-				Share:  cmd.Flag("share").Value.String() == defaultTrue,
+			ctx := cmd.Context()
+			volume, _ := cmd.Flags().GetBool("volume") //nolint:errcheck // flag defined below
+			share, _ := cmd.Flags().GetBool("share")   //nolint:errcheck // flag defined below
+			client, err := clientForKind(ctx, volume, share)
+			if err != nil {
+				return err
 			}
-			return snapshot.ListSnapshotsCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
+			snapShotOpts := &snapshot.SnapShotOpts{
+				Volume: volume,
+				Share:  share,
+			}
+			return snapshot.ListSnapshotsCmd(ctx, snapShotOpts, cmd.Flag("output").Value.String(), client)
 		},
 	}
 
@@ -85,16 +115,23 @@ func newCreateSnapshotCmd() *cobra.Command {
 		Short: "Create a snapshot of a volume or shared filesystem",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			volumeID := cmd.Flag("volume-id").Value.String()
+			shareID := cmd.Flag("share-id").Value.String()
+			client, err := clientForKind(ctx, volumeID != "", shareID != "")
+			if err != nil {
+				return err
+			}
 			snapShotOpts := &snapshot.SnapShotOpts{
-				VolumeID:    cmd.Flag("volume-id").Value.String(),
-				ShareID:     cmd.Flag("share-id").Value.String(),
+				VolumeID:    volumeID,
+				ShareID:     shareID,
 				Force:       cmd.Flag("force").Value.String() == defaultTrue,
 				Name:        cmd.Flag("name").Value.String(),
 				Description: cmd.Flag("description").Value.String(),
 				Cleanup:     cmd.Flag("cleanup").Value.String() == defaultTrue,
 				OlderThan:   cmd.Flag("older-than").Value.String(),
 			}
-			return snapshot.CreateSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
+			return snapshot.CreateSnapshotCmd(ctx, snapShotOpts, cmd.Flag("output").Value.String(), client)
 		},
 	}
 
@@ -102,7 +139,6 @@ func newCreateSnapshotCmd() *cobra.Command {
 	cmd.Flags().String("share-id", "", "ID of the shared filesystem to snapshot")
 	cmd.Flags().Bool("force", false, "Force snapshot creation (block only)")
 	cmd.Flags().Bool("cleanup", false, "Cleanup old snapshots after creation")
-	// M8: use the exported constant instead of an always-empty variable.
 	cmd.Flags().Duration("older-than", snapshot.DefaultOlderThan, "delete snapshots older than this duration, e.g. 168h (7 days), 720h (30 days)")
 	cmd.Flags().String("name", "", "Name of the snapshot")
 	cmd.Flags().String("description", "", "Description of the snapshot")
@@ -120,12 +156,19 @@ func newDeleteSnapshotCmd() *cobra.Command {
 		Short: "Delete a snapshot",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			volume, _ := cmd.Flags().GetBool("volume") //nolint:errcheck // flag defined below
+			share, _ := cmd.Flags().GetBool("share")   //nolint:errcheck // flag defined below
+			client, err := clientForKind(ctx, volume, share)
+			if err != nil {
+				return err
+			}
 			snapShotOpts := &snapshot.SnapShotOpts{
 				SnapshotID: cmd.Flag("snapshot-id").Value.String(),
-				Volume:     cmd.Flag("volume").Value.String() == defaultTrue,
-				Share:      cmd.Flag("share").Value.String() == defaultTrue,
+				Volume:     volume,
+				Share:      share,
 			}
-			return snapshot.DeleteSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
+			return snapshot.DeleteSnapshotCmd(ctx, snapShotOpts, cmd.Flag("output").Value.String(), client)
 		},
 	}
 

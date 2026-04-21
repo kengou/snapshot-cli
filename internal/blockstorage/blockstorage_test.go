@@ -93,7 +93,7 @@ func TestGetBlockStorage_ValidUUID_JSON(t *testing.T) {
 
 	client := newFakeBlockClient(server)
 	out := captureStdout(t, func() {
-		if err := getBlockStorage(context.Background(), volID, "json", client); err != nil {
+		if err := GetBlockStorage(context.Background(), volID, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -120,7 +120,7 @@ func TestGetBlockStorage_ValidUUID_Table(t *testing.T) {
 
 	client := newFakeBlockClient(server)
 	out := captureStdout(t, func() {
-		if err := getBlockStorage(context.Background(), volID, "table", client); err != nil {
+		if err := GetBlockStorage(context.Background(), volID, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -141,7 +141,7 @@ func TestGetBlockStorage_UnsupportedFormat_ReturnsError(t *testing.T) {
 	})
 
 	client := newFakeBlockClient(server)
-	err := getBlockStorage(context.Background(), volID, "yaml", client)
+	err := GetBlockStorage(context.Background(), volID, "yaml", client)
 	if err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
@@ -158,23 +158,23 @@ func TestGetBlockStorage_404_ReturnsError(t *testing.T) {
 	})
 
 	client := newFakeBlockClient(server)
-	err := getBlockStorage(context.Background(), volID, "json", client)
+	err := GetBlockStorage(context.Background(), volID, "json", client)
 	if err == nil {
 		t.Error("expected error for 404 response, got nil")
 	}
 }
 
-// --- RunGetBlockStorage UUID validation ---
+// UUID validation runs before any client call, so nil client is fine here.
 
-func TestRunGetBlockStorage_InvalidUUID(t *testing.T) {
-	err := RunGetBlockStorage(context.Background(), "not-a-uuid", "json")
+func TestGetBlockStorage_InvalidUUID(t *testing.T) {
+	err := GetBlockStorage(context.Background(), "not-a-uuid", "json", nil)
 	if err == nil || !strings.Contains(err.Error(), "invalid ID") {
 		t.Errorf("expected UUID validation error, got: %v", err)
 	}
 }
 
-func TestRunGetBlockStorage_EmptyUUID(t *testing.T) {
-	err := RunGetBlockStorage(context.Background(), "", "json")
+func TestGetBlockStorage_EmptyUUID(t *testing.T) {
+	err := GetBlockStorage(context.Background(), "", "json", nil)
 	if err == nil || !strings.Contains(err.Error(), "invalid ID") {
 		t.Errorf("expected UUID validation error for empty ID, got: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestListBlockStorage_JSON(t *testing.T) {
 
 	client := newFakeBlockClient(server)
 	out := captureStdout(t, func() {
-		if err := listBlockStorage(context.Background(), "json", client); err != nil {
+		if err := ListBlockStorage(context.Background(), "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -228,7 +228,7 @@ func TestListBlockStorage_Table(t *testing.T) {
 
 	client := newFakeBlockClient(server)
 	out := captureStdout(t, func() {
-		if err := listBlockStorage(context.Background(), "table", client); err != nil {
+		if err := ListBlockStorage(context.Background(), "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -249,7 +249,7 @@ func TestListBlockStorage_Empty(t *testing.T) {
 
 	client := newFakeBlockClient(server)
 	out := captureStdout(t, func() {
-		if err := listBlockStorage(context.Background(), "json", client); err != nil {
+		if err := ListBlockStorage(context.Background(), "json", client); err != nil {
 			t.Errorf("unexpected error for empty list: %v", err)
 		}
 	})
@@ -269,7 +269,7 @@ func TestListBlockStorage_UnsupportedFormat(t *testing.T) {
 	})
 
 	client := newFakeBlockClient(server)
-	err := listBlockStorage(context.Background(), "csv", client)
+	err := ListBlockStorage(context.Background(), "csv", client)
 	if err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestListBlockStorage_APIError(t *testing.T) {
 	})
 
 	client := newFakeBlockClient(server)
-	err := listBlockStorage(context.Background(), "json", client)
+	err := ListBlockStorage(context.Background(), "json", client)
 	if err == nil {
 		t.Error("expected error for 500 response, got nil")
 	}
@@ -305,49 +305,11 @@ func TestGetBlockStorage_NilVolume_PrintsMessage(t *testing.T) {
 
 	client := newFakeBlockClient(server)
 	out := captureStdout(t, func() {
-		if err := getBlockStorage(context.Background(), volID, "json", client); err != nil {
+		if err := GetBlockStorage(context.Background(), volID, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
-	if !contains(out, "No blockstorage volume found") {
+	if !strings.Contains(out, "No blockstorage volume found") {
 		t.Errorf("expected 'No blockstorage volume found' message, got: %s", out)
 	}
-}
-
-// --- RunGetBlockStorage and RunListBlockStorage (external entry points) ---
-// These test the error paths (config/auth failures) since internal functions
-// are already thoroughly tested above.
-
-func TestRunGetBlockStorage_ValidUUID_JSONFormat(t *testing.T) {
-	// Test that RunGetBlockStorage handles valid UUID format
-	// (Even though auth will fail, it validates UUID first)
-	err := RunGetBlockStorage(context.Background(), "not-a-uuid", "json")
-	if err == nil || !contains(err.Error(), "invalid ID") {
-		t.Errorf("expected UUID validation error, got: %v", err)
-	}
-}
-
-func TestRunListBlockStorage_CallsConfigReadAuthConfig(t *testing.T) {
-	// RunListBlockStorage calls config.ReadAuthConfig() which will fail
-	// in test environment (no OS_* env vars set with real OpenStack)
-	// We just verify it tries to read config (it will return auth error)
-	err := RunListBlockStorage(context.Background(), "json")
-	if err == nil {
-		t.Error("expected error when OS_AUTH_URL not set, got nil")
-	}
-}
-
-func TestRunGetBlockStorage_NoAuthEnv_ReadConfigFails(t *testing.T) {
-	// Valid UUID should pass validation, but auth config should fail
-	err := RunGetBlockStorage(context.Background(), "12345678-1234-1234-1234-123456789012", "json")
-	if err == nil {
-		t.Error("expected error when OS_AUTH_URL not set, got nil")
-	}
-	if !contains(err.Error(), "missing") && !contains(err.Error(), "OS_AUTH_URL") {
-		t.Errorf("expected config error, got: %v", err)
-	}
-}
-
-func contains(s, substr string) bool {
-	return s != "" && substr != ""
 }

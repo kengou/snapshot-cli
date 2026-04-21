@@ -29,11 +29,15 @@ func newGetBlockCmd() *cobra.Command {
 		Short: "Get block storage information",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return blockstorage.RunGetBlockStorage(cmd.Context(), cmd.Flag("volume-id").Value.String(), cmd.Flag("output").Value.String())
+			ctx := cmd.Context()
+			client, err := buildBlockClient(ctx)
+			if err != nil {
+				return err
+			}
+			return blockstorage.GetBlockStorage(ctx, cmd.Flag("volume-id").Value.String(), cmd.Flag("output").Value.String(), client)
 		},
 	}
 	cmd.Flags().String("volume-id", "", "ID of the block storage volume to retrieve")
-	// H3: define --output so cmd.Flag("output") never returns nil.
 	cmd.Flags().String("output", "json", "output format: json (default), table")
 	_ = cmd.MarkFlagRequired("volume-id") //nolint:errcheck
 	doNotSortFlags(cmd)
@@ -48,10 +52,14 @@ func newListBlockCmd() *cobra.Command {
 		Short: "List block storage resources",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return blockstorage.RunListBlockStorage(cmd.Context(), cmd.Flag("output").Value.String())
+			ctx := cmd.Context()
+			client, err := buildBlockClient(ctx)
+			if err != nil {
+				return err
+			}
+			return blockstorage.ListBlockStorage(ctx, cmd.Flag("output").Value.String(), client)
 		},
 	}
-	// H3: define --output so cmd.Flag("output") never returns nil.
 	cmd.Flags().String("output", "json", "output format: json (default), table")
 	doNotSortFlags(cmd)
 
@@ -59,21 +67,25 @@ func newListBlockCmd() *cobra.Command {
 }
 
 // newSnapshotBlockCmd returns the "volumes snapshot" subcommand.
-// H4: delegates to snapshot.CreateSnapshotCmd to eliminate duplicate logic.
-// L7: uses --description flag name (consistent with "snapshot create").
+// Delegates to snapshot.CreateSnapshotCmd to share create/cleanup plumbing.
 func newSnapshotBlockCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "snapshot",
 		Short: "Create a snapshot of a block storage volume",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client, err := buildBlockClient(ctx)
+			if err != nil {
+				return err
+			}
 			snapShotOpts := &snapshot.SnapShotOpts{
 				VolumeID:    cmd.Flag("volume-id").Value.String(),
 				Force:       cmd.Flag("force").Value.String() == "true",
 				Name:        cmd.Flag("name").Value.String(),
 				Description: cmd.Flag("description").Value.String(),
 			}
-			return snapshot.CreateSnapshotCmd(cmd.Context(), snapShotOpts, cmd.Flag("output").Value.String())
+			return snapshot.CreateSnapshotCmd(ctx, snapShotOpts, cmd.Flag("output").Value.String(), client)
 		},
 	}
 	cmd.Flags().String("volume-id", "", "ID of the block storage volume to snapshot")

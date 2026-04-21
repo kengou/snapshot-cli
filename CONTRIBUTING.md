@@ -32,7 +32,7 @@ snapshot-cli/
 Key design rules:
 - All commands authenticate via `config.ReadAuthConfig()` (reads `OS_*` env vars)
 - New commands belong in `internal/cmd/`; business logic in the relevant service package
-- Output is always written via `util.WriteJSON` or `util.WriteAsTable`; never `fmt.Print` in service functions
+- Output is always written via `util.Render(output, data, header)`; never `fmt.Print` in service functions
 
 ## Running tests
 
@@ -68,14 +68,9 @@ Common lint fixes:
 2. Register it in `newRootCmd()` (or the appropriate parent command) in `root.go`.
 3. Put business logic in the relevant service package (`blockstorage/`, `snapshot/`, etc.).
 4. Use `cmd.MarkFlagsOneRequired` / `cmd.MarkFlagsMutuallyExclusive` for exclusive flags.
-5. Follow the existing output pattern:
+5. Render output through `util.Render`, which switches between `"table"` and `"json"`:
    ```go
-   switch output {
-   case util.OutputTable:
-       return util.WriteAsTable(result, header)
-   case util.OutputJSON:
-       return util.WriteJSON(result)
-   }
+   return util.Render(output, result, header)
    ```
 6. Add a godoc comment to every exported function.
 7. Add or extend tests in `*_test.go` files.

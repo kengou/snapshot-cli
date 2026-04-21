@@ -7,8 +7,6 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
 	"snapshot-cli/internal/util"
 )
 
@@ -36,22 +34,9 @@ var volumeHeader = []string{
 	"os-vol-tenant-attr:tenant_id",
 }
 
-// RunListBlockStorage lists all Cinder volumes in the current project and writes
-// them to stdout in the requested output format.
-func RunListBlockStorage(ctx context.Context, output string) error {
-	authConfig, err := config.ReadAuthConfig()
-	if err != nil {
-		return err
-	}
-	blockClient, err := auth.NewBlockStorageClient(ctx, authConfig)
-	if err != nil {
-		return err
-	}
-	return listBlockStorage(ctx, output, blockClient)
-}
-
-// listBlockStorage is the testable core: it accepts a pre-built client.
-func listBlockStorage(ctx context.Context, output string, blockClient *gophercloud.ServiceClient) error {
+// ListBlockStorage lists all Cinder volumes in the current project and writes
+// them to stdout in the requested output format. Caller supplies the client.
+func ListBlockStorage(ctx context.Context, output string, blockClient *gophercloud.ServiceClient) error {
 	vol, err := volumes.List(blockClient, volumes.ListOpts{}).AllPages(ctx)
 	if err != nil {
 		return err
@@ -66,12 +51,5 @@ func listBlockStorage(ctx context.Context, output string, blockClient *gopherclo
 		return nil
 	}
 
-	switch output {
-	case util.OutputTable:
-		return util.WriteAsTable(volumeList, volumeHeader)
-	case util.OutputJSON:
-		return util.WriteJSON(volumeList)
-	default:
-		return fmt.Errorf("unsupported output format: %q", output)
-	}
+	return util.Render(output, volumeList, volumeHeader)
 }

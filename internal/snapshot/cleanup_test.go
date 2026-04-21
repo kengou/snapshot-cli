@@ -20,9 +20,9 @@ func TestParseDurationOrFallback_ValidDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := ParseDurationOrFallback(tt.input)
+			got := parseDurationOrFallback(tt.input)
 			if got != tt.want {
-				t.Errorf("ParseDurationOrFallback(%q) = %v, want %v", tt.input, got, tt.want)
+				t.Errorf("parseDurationOrFallback(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -46,9 +46,9 @@ func TestParseDurationOrFallback_InvalidInput_Returns7Days(t *testing.T) {
 
 	for _, input := range trulyInvalid {
 		t.Run("invalid:"+input, func(t *testing.T) {
-			got := ParseDurationOrFallback(input)
+			got := parseDurationOrFallback(input)
 			if got != fallback {
-				t.Errorf("ParseDurationOrFallback(%q) = %v, want fallback %v", input, got, fallback)
+				t.Errorf("parseDurationOrFallback(%q) = %v, want fallback %v", input, got, fallback)
 			}
 		})
 	}
@@ -58,21 +58,21 @@ func TestParseDurationOrFallback_InvalidInput_Returns7Days(t *testing.T) {
 
 func TestParseDurationOrFallback_NegativeDuration_ParsedAsIs(t *testing.T) {
 	// Go's time.ParseDuration accepts negative durations
-	got := ParseDurationOrFallback("-1h")
+	got := parseDurationOrFallback("-1h")
 	if got != -time.Hour {
-		t.Errorf("ParseDurationOrFallback(%q) = %v, want %v", "-1h", got, -time.Hour)
+		t.Errorf("parseDurationOrFallback(%q) = %v, want %v", "-1h", got, -time.Hour)
 	}
 }
 
 func TestParseDurationOrFallback_FallbackIs7Days(t *testing.T) {
 	const expected = 168 * time.Hour
-	got := ParseDurationOrFallback("not-a-duration")
+	got := parseDurationOrFallback("not-a-duration")
 	if got != expected {
 		t.Errorf("fallback should be 168h (7 days), got %v", got)
 	}
 }
 
-// FuzzParseDurationOrFallback verifies that ParseDurationOrFallback never panics
+// FuzzParseDurationOrFallback verifies that parseDurationOrFallback never panics
 // and always returns either the parsed duration or the 7-day fallback.
 func FuzzParseDurationOrFallback(f *testing.F) {
 	// Seed corpus: valid durations, invalid strings, edge cases
@@ -81,17 +81,17 @@ func FuzzParseDurationOrFallback(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, s string) {
-		result := ParseDurationOrFallback(s)
+		result := parseDurationOrFallback(s)
 		// Must always return the fallback (168h) for unparseable input,
 		// or the parsed value for valid input — never panic.
 		parsed, err := time.ParseDuration(s)
 		if err != nil {
 			if result != 168*time.Hour {
-				t.Errorf("ParseDurationOrFallback(%q): invalid input should return 168h fallback, got %v", s, result)
+				t.Errorf("parseDurationOrFallback(%q): invalid input should return 168h fallback, got %v", s, result)
 			}
 		} else {
 			if result != parsed {
-				t.Errorf("ParseDurationOrFallback(%q): valid input should return %v, got %v", s, parsed, result)
+				t.Errorf("parseDurationOrFallback(%q): valid input should return %v, got %v", s, parsed, result)
 			}
 		}
 	})

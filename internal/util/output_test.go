@@ -31,11 +31,11 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-// WriteJSON
+// writeJSON
 
 func TestWriteJSON_String(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := WriteJSON("hello"); err != nil {
+		if err := writeJSON("hello"); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -48,7 +48,7 @@ func TestWriteJSON_String(t *testing.T) {
 func TestWriteJSON_Map(t *testing.T) {
 	input := map[string]int{"a": 1, "b": 2}
 	out := captureStdout(t, func() {
-		if err := WriteJSON(input); err != nil {
+		if err := writeJSON(input); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -65,7 +65,7 @@ func TestWriteJSON_Map(t *testing.T) {
 func TestWriteJSON_Slice(t *testing.T) {
 	input := []string{"x", "y", "z"}
 	out := captureStdout(t, func() {
-		if err := WriteJSON(input); err != nil {
+		if err := writeJSON(input); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -81,7 +81,7 @@ func TestWriteJSON_Slice(t *testing.T) {
 
 func TestWriteJSON_Nil(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := WriteJSON(nil); err != nil {
+		if err := writeJSON(nil); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -96,7 +96,7 @@ func TestWriteJSON_Struct(t *testing.T) {
 		Y int `json:"y"`
 	}
 	out := captureStdout(t, func() {
-		if err := WriteJSON(point{X: 3, Y: 7}); err != nil {
+		if err := writeJSON(point{X: 3, Y: 7}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -112,7 +112,7 @@ func TestWriteJSON_Struct(t *testing.T) {
 
 func TestWriteJSON_OutputEndsWithNewline(t *testing.T) {
 	out := captureStdout(t, func() {
-		if err := WriteJSON("test"); err != nil {
+		if err := writeJSON("test"); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -124,7 +124,7 @@ func TestWriteJSON_OutputEndsWithNewline(t *testing.T) {
 func TestWriteJSON_UnmarshalableType_ReturnsError(t *testing.T) {
 	// channels cannot be marshalled to JSON
 	ch := make(chan int)
-	err := WriteJSON(ch)
+	err := writeJSON(ch)
 	if err == nil {
 		t.Error("expected error for unmarshalable type, got nil")
 	}
@@ -164,7 +164,7 @@ func TestIsSlice_NonSlice_ReturnsFalse(t *testing.T) {
 	}
 }
 
-// WriteAsTable
+// writeAsTable
 
 func TestWriteAsTable_Struct(t *testing.T) {
 	type row struct {
@@ -172,7 +172,7 @@ func TestWriteAsTable_Struct(t *testing.T) {
 		Value int
 	}
 	out := captureStdout(t, func() {
-		if err := WriteAsTable(row{Name: "foo", Value: 42}, []string{"Name", "Value"}); err != nil {
+		if err := writeAsTable(row{Name: "foo", Value: 42}, []string{"Name", "Value"}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -191,7 +191,7 @@ func TestWriteAsTable_SliceOfStructs(t *testing.T) {
 		{ID: "def-456", Size: 20},
 	}
 	out := captureStdout(t, func() {
-		if err := WriteAsTable(rows, []string{"ID", "Size"}); err != nil {
+		if err := writeAsTable(rows, []string{"ID", "Size"}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -203,7 +203,7 @@ func TestWriteAsTable_SliceOfStructs(t *testing.T) {
 	}
 }
 
-// FuzzWriteJSON verifies that WriteJSON never panics for arbitrary string input.
+// FuzzwriteJSON verifies that writeJSON never panics for arbitrary string input.
 func FuzzWriteJSON(f *testing.F) {
 	f.Add("hello")
 	f.Add("")
@@ -212,11 +212,11 @@ func FuzzWriteJSON(f *testing.F) {
 	f.Add("\x00\xff\n\t")
 
 	f.Fuzz(func(t *testing.T, s string) {
-		// WriteJSON must never panic regardless of input.
+		// writeJSON must never panic regardless of input.
 		// It may return an error for types it can't marshal, but strings always marshal.
 		captureStdout(t, func() {
-			if err := WriteJSON(s); err != nil {
-				t.Errorf("WriteJSON(%q) returned unexpected error: %v", s, err)
+			if err := writeJSON(s); err != nil {
+				t.Errorf("writeJSON(%q) returned unexpected error: %v", s, err)
 			}
 		})
 	})
@@ -225,10 +225,59 @@ func FuzzWriteJSON(f *testing.F) {
 // Constants
 
 func TestOutputConstants(t *testing.T) {
-	if OutputJSON != "json" {
-		t.Errorf("OutputJSON = %q, want %q", OutputJSON, "json")
+	if outputJSON != "json" {
+		t.Errorf("outputJSON = %q, want %q", outputJSON, "json")
 	}
-	if OutputTable != "table" {
-		t.Errorf("OutputTable = %q, want %q", OutputTable, "table")
+	if outputTable != "table" {
+		t.Errorf("outputTable = %q, want %q", outputTable, "table")
+	}
+}
+
+// Render
+
+func TestRender_JSON_DelegatesToWriteJSON(t *testing.T) {
+	type row struct {
+		ID string `json:"id"`
+	}
+	out := captureStdout(t, func() {
+		if err := Render(outputJSON, row{ID: "abc"}, nil); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(out, `"id":"abc"`) {
+		t.Errorf("expected id in JSON output, got: %s", out)
+	}
+}
+
+func TestRender_Table_DelegatesToWriteAsTable(t *testing.T) {
+	type row struct {
+		ID string
+	}
+	out := captureStdout(t, func() {
+		if err := Render(outputTable, row{ID: "xyz"}, []string{"ID"}); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(out, "xyz") {
+		t.Errorf("expected ID in table output, got: %s", out)
+	}
+}
+
+func TestRender_Unsupported_ReturnsError(t *testing.T) {
+	err := Render("yaml", struct{}{}, nil)
+	if err == nil {
+		t.Fatal("expected error for unsupported format, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported output format") {
+		t.Errorf("error should mention unsupported format, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), `"yaml"`) {
+		t.Errorf("error should include the offending format string, got: %v", err)
+	}
+}
+
+func TestRender_Empty_ReturnsError(t *testing.T) {
+	if err := Render("", struct{}{}, nil); err == nil {
+		t.Error("expected error for empty output format")
 	}
 }

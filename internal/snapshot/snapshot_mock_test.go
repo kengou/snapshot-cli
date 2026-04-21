@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -125,9 +127,10 @@ func TestGetSnapshotCmd_Volume_JSON(t *testing.T) {
 		writeBody(w, blockSnapJSON(snapID, validUUID2))
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
 	out := captureStdout(t, func() {
-		if err := GetSnapshotCmd(context.Background(), opts, "json"); err != nil {
+		if err := GetSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -151,9 +154,10 @@ func TestGetSnapshotCmd_Volume_Table(t *testing.T) {
 		writeBody(w, blockSnapJSON(snapID, validUUID2))
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
 	out := captureStdout(t, func() {
-		if err := GetSnapshotCmd(context.Background(), opts, "table"); err != nil {
+		if err := GetSnapshotCmd(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -173,8 +177,9 @@ func TestGetSnapshotCmd_Volume_UnsupportedFormat(t *testing.T) {
 		writeBody(w, blockSnapJSON(snapID, validUUID2))
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
-	err := GetSnapshotCmd(context.Background(), opts, "yaml")
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
+	err := GetSnapshotCmd(context.Background(), opts, "yaml", client)
 	if err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
@@ -190,8 +195,9 @@ func TestGetSnapshotCmd_Volume_404(t *testing.T) {
 		writeBody(w, `{"itemNotFound":{"message":"Snapshot not found","code":404}}`)
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
-	if err := GetSnapshotCmd(context.Background(), opts, "json"); err == nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
+	if err := GetSnapshotCmd(context.Background(), opts, "json", client); err == nil {
 		t.Error("expected error for 404 response, got nil")
 	}
 }
@@ -207,9 +213,10 @@ func TestGetSnapshotCmd_Share_JSON(t *testing.T) {
 		writeBody(w, nfsSnapJSON(snapID, validUUID2))
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Share: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Share: true}
 	out := captureStdout(t, func() {
-		if err := GetSnapshotCmd(context.Background(), opts, "json"); err != nil {
+		if err := GetSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -224,14 +231,14 @@ func TestGetSnapshotCmd_Share_JSON(t *testing.T) {
 
 func TestGetSnapshotCmd_InvalidUUID(t *testing.T) {
 	opts := &SnapShotOpts{SnapshotID: "not-a-uuid", Volume: true}
-	if err := GetSnapshotCmd(context.Background(), opts, "json"); err == nil || !strings.Contains(err.Error(), "invalid ID") {
+	if err := GetSnapshotCmd(context.Background(), opts, "json", nil); err == nil || !strings.Contains(err.Error(), "invalid ID") {
 		t.Errorf("expected UUID validation error, got: %v", err)
 	}
 }
 
 func TestDeleteSnapshotCmd_InvalidUUID(t *testing.T) {
 	opts := &SnapShotOpts{SnapshotID: "bad-id", Volume: true}
-	if err := DeleteSnapshotCmd(context.Background(), opts, "json"); err == nil || !strings.Contains(err.Error(), "invalid ID") {
+	if err := DeleteSnapshotCmd(context.Background(), opts, "json", nil); err == nil || !strings.Contains(err.Error(), "invalid ID") {
 		t.Errorf("expected UUID validation error, got: %v", err)
 	}
 }
@@ -252,9 +259,10 @@ func TestListSnapshotsCmd_Volume_JSON(t *testing.T) {
 		writeBody(w, blockSnapListJSON([]string{validUUID, validUUID2}))
 	})
 
-	opts := &SnapShotOpts{Volume: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true}
 	out := captureStdout(t, func() {
-		if err := ListSnapshotsCmd(context.Background(), opts, "json"); err != nil {
+		if err := ListSnapshotsCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -283,9 +291,10 @@ func TestListSnapshotsCmd_Volume_Table(t *testing.T) {
 		writeBody(w, blockSnapListJSON([]string{validUUID}))
 	})
 
-	opts := &SnapShotOpts{Volume: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true}
 	out := captureStdout(t, func() {
-		if err := ListSnapshotsCmd(context.Background(), opts, "table"); err != nil {
+		if err := ListSnapshotsCmd(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -304,8 +313,9 @@ func TestListSnapshotsCmd_Volume_UnsupportedFormat(t *testing.T) {
 		writeBody(w, blockSnapListJSON([]string{validUUID}))
 	})
 
-	opts := &SnapShotOpts{Volume: true, client: newFakeClient(server)}
-	if err := ListSnapshotsCmd(context.Background(), opts, "csv"); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true}
+	if err := ListSnapshotsCmd(context.Background(), opts, "csv", client); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
 }
@@ -324,9 +334,10 @@ func TestListSnapshotsCmd_Share_JSON(t *testing.T) {
 		writeBody(w, nfsSnapListJSON([]string{validUUID, validUUID2}))
 	})
 
-	opts := &SnapShotOpts{Share: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Share: true}
 	out := captureStdout(t, func() {
-		if err := ListSnapshotsCmd(context.Background(), opts, "json"); err != nil {
+		if err := ListSnapshotsCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -349,8 +360,9 @@ func TestDeleteSnapshotCmd_Volume_Success(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
-	if err := DeleteSnapshotCmd(context.Background(), opts, "json"); err != nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
+	if err := DeleteSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -365,8 +377,9 @@ func TestDeleteSnapshotCmd_Volume_404(t *testing.T) {
 		writeBody(w, `{"itemNotFound":{"message":"Snapshot not found","code":404}}`)
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
-	if err := DeleteSnapshotCmd(context.Background(), opts, "json"); err == nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
+	if err := DeleteSnapshotCmd(context.Background(), opts, "json", client); err == nil {
 		t.Error("expected error for 404 response, got nil")
 	}
 }
@@ -381,8 +394,9 @@ func TestDeleteSnapshotCmd_Share_Success(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Share: true, client: newFakeClient(server)}
-	if err := DeleteSnapshotCmd(context.Background(), opts, "json"); err != nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Share: true}
+	if err := DeleteSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 		t.Errorf("unexpected error deleting NFS snapshot: %v", err)
 	}
 }
@@ -404,9 +418,10 @@ func TestCreateSnapshotCmd_Volume_JSON(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{VolumeID: validUUID2, Name: "test", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{VolumeID: validUUID2, Name: "test"}
 	out := captureStdout(t, func() {
-		if err := CreateSnapshotCmd(context.Background(), opts, "json"); err != nil {
+		if err := CreateSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -431,8 +446,9 @@ func TestCreateSnapshotCmd_Volume_UnsupportedFormat(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{VolumeID: validUUID2, Name: "test", client: newFakeClient(server)}
-	if err := CreateSnapshotCmd(context.Background(), opts, "yaml"); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{VolumeID: validUUID2, Name: "test"}
+	if err := CreateSnapshotCmd(context.Background(), opts, "yaml", client); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
 }
@@ -450,9 +466,10 @@ func TestCreateSnapshotCmd_Share_JSON(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{ShareID: validUUID2, Name: "nfs-test", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{ShareID: validUUID2, Name: "nfs-test"}
 	out := captureStdout(t, func() {
-		if err := CreateSnapshotCmd(context.Background(), opts, "json"); err != nil {
+		if err := CreateSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -473,9 +490,10 @@ func TestCreateSnapshotCmd_Volume_Table(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{VolumeID: validUUID2, Name: "test", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{VolumeID: validUUID2, Name: "test"}
 	out := captureStdout(t, func() {
-		if err := CreateSnapshotCmd(context.Background(), opts, "table"); err != nil {
+		if err := CreateSnapshotCmd(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -496,9 +514,10 @@ func TestCreateSnapshotCmd_Share_Table(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{ShareID: validUUID2, Name: "nfs-test", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{ShareID: validUUID2, Name: "nfs-test"}
 	out := captureStdout(t, func() {
-		if err := CreateSnapshotCmd(context.Background(), opts, "table"); err != nil {
+		if err := CreateSnapshotCmd(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -518,9 +537,10 @@ func TestGetSnapshotCmd_Share_Table(t *testing.T) {
 		writeBody(w, nfsSnapJSON(snapID, validUUID2))
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Share: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Share: true}
 	out := captureStdout(t, func() {
-		if err := GetSnapshotCmd(context.Background(), opts, "table"); err != nil {
+		if err := GetSnapshotCmd(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -539,9 +559,27 @@ func TestDeleteSnapshotCmd_Volume_Table(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true, client: newFakeClient(server)}
-	if err := DeleteSnapshotCmd(context.Background(), opts, "table"); err != nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Volume: true}
+	if err := DeleteSnapshotCmd(context.Background(), opts, "table", client); err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestDeleteSnapshotCmd_Share_Table(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	snapID := validUUID
+	server.Mux.HandleFunc("/snapshots/"+snapID, func(w http.ResponseWriter, r *http.Request) {
+		th.TestMethod(t, r, "DELETE")
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Share: true}
+	if err := DeleteSnapshotCmd(context.Background(), opts, "table", client); err != nil {
+		t.Errorf("unexpected error deleting NFS snapshot in table format: %v", err)
 	}
 }
 
@@ -554,8 +592,9 @@ func TestCreateSnapshotCmd_APIError(t *testing.T) {
 		writeBody(w, `{"badRequest":{"message":"Invalid volume_id","code":400}}`)
 	})
 
-	opts := &SnapShotOpts{VolumeID: validUUID2, client: newFakeClient(server)}
-	if err := CreateSnapshotCmd(context.Background(), opts, "json"); err == nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{VolumeID: validUUID2}
+	if err := CreateSnapshotCmd(context.Background(), opts, "json", client); err == nil {
 		t.Error("expected error for 400 response, got nil")
 	}
 }
@@ -591,9 +630,10 @@ func TestCleanupSnapshot_Volume_DeletesOld(t *testing.T) {
 		}
 	})
 
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
 	captureStdout(t, func() {
-		if err := CleanupSnapshot(context.Background(), opts, "json"); err != nil {
+		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -613,9 +653,10 @@ func TestCleanupSnapshot_Volume_NoneOldEnough(t *testing.T) {
 		writeBody(w, list)
 	})
 
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
 	captureStdout(t, func() {
-		if err := CleanupSnapshot(context.Background(), opts, "json"); err != nil {
+		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -635,8 +676,9 @@ func TestCleanupSnapshot_Volume_UnsupportedFormat(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h", client: newFakeClient(server)}
-	if err := CleanupSnapshot(context.Background(), opts, "yaml"); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	if err := CleanupSnapshot(context.Background(), opts, "yaml", client); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
 }
@@ -664,9 +706,10 @@ func TestCleanupSnapshot_Share_DeletesOld(t *testing.T) {
 		}
 	})
 
-	opts := &SnapShotOpts{Share: true, OlderThan: "168h", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Share: true, OlderThan: "168h"}
 	captureStdout(t, func() {
-		if err := CleanupSnapshot(context.Background(), opts, "json"); err != nil {
+		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -694,9 +737,10 @@ func TestCleanupSnapshot_Volume_Table(t *testing.T) {
 		}
 	})
 
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
 	captureStdout(t, func() {
-		if err := CleanupSnapshot(context.Background(), opts, "table"); err != nil {
+		if err := CleanupSnapshot(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -719,9 +763,10 @@ func TestCleanupSnapshot_Share_Table(t *testing.T) {
 		}
 	})
 
-	opts := &SnapShotOpts{Share: true, OlderThan: "168h", client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Share: true, OlderThan: "168h"}
 	captureStdout(t, func() {
-		if err := CleanupSnapshot(context.Background(), opts, "table"); err != nil {
+		if err := CleanupSnapshot(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -732,8 +777,9 @@ func TestCleanupSnapshot_Share_Table(t *testing.T) {
 // ============================================================
 
 func TestCreateSnapshotCmd_NoVolumeOrShare_ReturnsNil(t *testing.T) {
-	opts := &SnapShotOpts{Name: "test", client: newFakeClient(th.SetupHTTP())}
-	if err := CreateSnapshotCmd(context.Background(), opts, "json"); err != nil {
+	client := newFakeClient(th.SetupHTTP())
+	opts := &SnapShotOpts{Name: "test"}
+	if err := CreateSnapshotCmd(context.Background(), opts, "json", client); err != nil {
 		t.Errorf("expected no error when neither volume nor share specified, got: %v", err)
 	}
 }
@@ -754,8 +800,9 @@ func TestCreateSnapshotCmd_Volume_InvalidOutputFormat(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{VolumeID: validUUID2, client: newFakeClient(server)}
-	if err := CreateSnapshotCmd(context.Background(), opts, "xml"); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{VolumeID: validUUID2}
+	if err := CreateSnapshotCmd(context.Background(), opts, "xml", client); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
 }
@@ -772,8 +819,9 @@ func TestCreateSnapshotCmd_Share_InvalidOutputFormat(t *testing.T) {
 		writeBody(w, resp)
 	})
 
-	opts := &SnapShotOpts{ShareID: validUUID2, client: newFakeClient(server)}
-	if err := CreateSnapshotCmd(context.Background(), opts, "xml"); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{ShareID: validUUID2}
+	if err := CreateSnapshotCmd(context.Background(), opts, "xml", client); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
 }
@@ -788,9 +836,10 @@ func TestListSnapshotsCmd_Volume_Empty(t *testing.T) {
 		writeBody(w, `{"snapshots":[]}`)
 	})
 
-	opts := &SnapShotOpts{Volume: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true}
 	out := captureStdout(t, func() {
-		if err := ListSnapshotsCmd(context.Background(), opts, "json"); err != nil {
+		if err := ListSnapshotsCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -810,9 +859,10 @@ func TestListSnapshotsCmd_Share_Empty(t *testing.T) {
 		writeBody(w, `{"snapshots":[]}`)
 	})
 
-	opts := &SnapShotOpts{Share: true, client: newFakeClient(server)}
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Share: true}
 	out := captureStdout(t, func() {
-		if err := ListSnapshotsCmd(context.Background(), opts, "json"); err != nil {
+		if err := ListSnapshotsCmd(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -832,8 +882,281 @@ func TestDeleteSnapshotCmd_Share_404(t *testing.T) {
 		writeBody(w, `{"itemNotFound":{"message":"Snapshot not found","code":404}}`)
 	})
 
-	opts := &SnapShotOpts{SnapshotID: snapID, Share: true, client: newFakeClient(server)}
-	if err := DeleteSnapshotCmd(context.Background(), opts, "json"); err == nil {
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{SnapshotID: snapID, Share: true}
+	if err := DeleteSnapshotCmd(context.Background(), opts, "json", client); err == nil {
 		t.Error("expected error for 404 response, got nil")
 	}
 }
+
+// ============================================================
+// Cleanup — partial failure & cancellation
+// ============================================================
+
+// blockSnapListOldEnough builds a snapshots list with all ids aged 500h
+// (well past the 168h default cleanup threshold).
+func blockSnapListOldEnough(ids []string) string {
+	ts := timeNoZ(time.Now().Add(-500 * time.Hour))
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = `{"id":"` + id + `","volume_id":"vol1","name":"snap","status":"available","size":10,"metadata":{},"created_at":"` + ts + `","updated_at":"` + ts + `"}`
+	}
+	return `{"snapshots":[` + strings.Join(parts, ",") + `]}`
+}
+
+// TestCleanupSnapshot_Volume_PartialFail simulates a scenario where one DELETE returns
+// 500 and the others succeed; the returned JSON must contain only the successful IDs.
+func TestCleanupSnapshot_Volume_PartialFail(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	okA := "aaaaaaaa-1111-1111-1111-111111111111"
+	okB := "bbbbbbbb-2222-2222-2222-222222222222"
+	failC := "cccccccc-3333-3333-3333-333333333333"
+
+	server.Mux.HandleFunc("/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		writeBody(w, blockSnapListOldEnough([]string{okA, okB, failC}))
+	})
+
+	for _, id := range []string{okA, okB} {
+		server.Mux.HandleFunc("/snapshots/"+id, func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodDelete {
+				w.WriteHeader(http.StatusNoContent)
+			}
+		})
+	}
+	server.Mux.HandleFunc("/snapshots/"+failC, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusInternalServerError)
+			writeBody(w, `{"error":{"message":"backend unavailable","code":500}}`)
+		}
+	})
+
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	out := captureStdout(t, func() {
+		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
+			t.Fatalf("CleanupSnapshot returned error: %v", err)
+		}
+	})
+	var deleted []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &deleted); err != nil {
+		t.Fatalf("output is not valid JSON array: %v\nout=%s", err, out)
+	}
+	if len(deleted) != 2 {
+		t.Fatalf("expected exactly 2 successful deletions, got %d: %v", len(deleted), deleted)
+	}
+	for _, id := range deleted {
+		if id == failC {
+			t.Errorf("failed snapshot %s should NOT appear in deleted list", failC)
+		}
+	}
+}
+
+// TestCleanupSnapshot_Volume_DryRun_SkipsDeletes verifies that --dry-run reports
+// the candidate IDs without issuing any DELETE calls.
+func TestCleanupSnapshot_Volume_DryRun_SkipsDeletes(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	oldID := validUUID
+	server.Mux.HandleFunc("/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		writeBody(w, blockSnapListOldEnough([]string{oldID}))
+	})
+	server.Mux.HandleFunc("/snapshots/"+oldID, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			t.Error("dry-run must NOT issue DELETE requests")
+		}
+	})
+
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h", DryRun: true}
+	out := captureStdout(t, func() {
+		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
+			t.Fatalf("CleanupSnapshot returned error: %v", err)
+		}
+	})
+	if !strings.Contains(out, oldID) {
+		t.Errorf("dry-run output should list candidate %s, got: %s", oldID, out)
+	}
+}
+
+// TestCleanupSnapshot_Volume_CtxCancelledBeforeStart verifies that a cancelled
+// context produces no deletions and does not panic. We cancel before CleanupSnapshot
+// runs, then confirm the list call itself fails cleanly.
+func TestCleanupSnapshot_Volume_CtxCancelledBeforeStart(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	server.Mux.HandleFunc("/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		writeBody(w, blockSnapListOldEnough([]string{validUUID}))
+	})
+	server.Mux.HandleFunc("/snapshots/"+validUUID, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			t.Error("cancelled context must NOT issue DELETE requests")
+		}
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before calling
+
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	// With a cancelled context, the AllPages call should return an error.
+	// We don't assert the exact error string — only that we don't panic and
+	// return promptly rather than hanging.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		//nolint:errcheck // intentionally discarded — test asserts on timing, not error
+		CleanupSnapshot(ctx, opts, "json", client)
+	}()
+	select {
+	case <-done:
+		// ok — returned quickly
+	case <-time.After(2 * time.Second):
+		t.Fatal("CleanupSnapshot did not return within 2s on cancelled context")
+	}
+}
+
+// TestCleanupSnapshot_Volume_CtxCancelledMidway queues many deletes with a small
+// semaphore so some are waiting on it, then cancels the context. Cleanup must
+// return promptly — the in-progress workers exit cleanly and the queued ones
+// are skipped.
+func TestCleanupSnapshot_Volume_CtxCancelledMidway(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	// Use 20 IDs; semaphore is 5, so most wait.
+	ids := make([]string, 20)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("aaaaaaaa-0000-0000-0000-%012d", i)
+	}
+
+	server.Mux.HandleFunc("/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		writeBody(w, blockSnapListOldEnough(ids))
+	})
+
+	// Each DELETE takes 200ms — plenty of time to cancel.
+	deleted := make(map[string]bool)
+	var mu sync.Mutex
+	for _, id := range ids {
+		server.Mux.HandleFunc("/snapshots/"+id, func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodDelete {
+				return
+			}
+			time.Sleep(200 * time.Millisecond)
+			mu.Lock()
+			deleted[id] = true
+			mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+		})
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+
+	// Cancel 100ms after Cleanup starts — some DELETEs will be in flight but
+	// most will be waiting for the semaphore.
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		cancel()
+	}()
+
+	done := make(chan struct{})
+	// Stderr gets written to on cancellation; silence it so the test output stays clean.
+	stderrOld := os.Stderr
+	stderrR, stderrW, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		t.Fatalf("os.Pipe: %v", pipeErr)
+	}
+	os.Stderr = stderrW
+	go func() {
+		defer close(done)
+		captureStdout(t, func() {
+			//nolint:errcheck // intentionally discarded — test asserts on timing, not error
+			CleanupSnapshot(ctx, opts, "json", client)
+		})
+	}()
+
+	select {
+	case <-done:
+		// ok
+	case <-time.After(5 * time.Second):
+		t.Fatal("CleanupSnapshot did not return within 5s after cancellation")
+	}
+	if err := stderrW.Close(); err != nil {
+		t.Logf("stderrW.Close: %v", err)
+	}
+	os.Stderr = stderrOld
+	// Drain stderr so the pipe doesn't block GC.
+	if _, err := io.Copy(io.Discard, stderrR); err != nil {
+		t.Logf("stderr drain: %v", err)
+	}
+
+	mu.Lock()
+	n := len(deleted)
+	mu.Unlock()
+	if n >= len(ids) {
+		t.Errorf("cancellation should have stopped some deletions, got %d/%d", n, len(ids))
+	}
+}
+
+// ============================================================
+// ListSnapshotsCmd — pagination
+// ============================================================
+
+// TestListSnapshotsCmd_Volume_Paginated verifies that AllPages follows the
+// snapshots_links[next] URL and returns the union of all pages.
+func TestListSnapshotsCmd_Volume_Paginated(t *testing.T) {
+	server := th.SetupHTTP()
+	defer server.Teardown()
+
+	p1ID := "11111111-1111-1111-1111-111111111111"
+	p2ID := "22222222-2222-2222-2222-222222222222"
+
+	ts := timeNoZ(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+	nextURL := server.Server.URL + "/snapshots?marker=" + p1ID
+	p1 := `{"snapshots":[{"id":"` + p1ID + `","volume_id":"vol1","name":"snap1","status":"available","size":10,"metadata":{},"created_at":"` + ts + `","updated_at":"` + ts + `"}],"snapshots_links":[{"rel":"next","href":"` + nextURL + `"}]}`
+	p2 := `{"snapshots":[{"id":"` + p2ID + `","volume_id":"vol1","name":"snap2","status":"available","size":10,"metadata":{},"created_at":"` + ts + `","updated_at":"` + ts + `"}]}`
+
+	server.Mux.HandleFunc("/snapshots", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if r.URL.Query().Get("marker") == p1ID {
+			writeBody(w, p2)
+		} else {
+			writeBody(w, p1)
+		}
+	})
+
+	client := newFakeClient(server)
+	opts := &SnapShotOpts{Volume: true}
+	out := captureStdout(t, func() {
+		if err := ListSnapshotsCmd(context.Background(), opts, "json", client); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(out, p1ID) {
+		t.Errorf("expected page-1 ID %s in output: %s", p1ID, out)
+	}
+	if !strings.Contains(out, p2ID) {
+		t.Errorf("expected page-2 ID %s in output (pagination not followed): %s", p2ID, out)
+	}
+}
+
+// Note: NFS (Manila) pagination is NOT covered by an analogous test here because
+// gophercloud's NFS SnapshotPage.NextPageURL relies on the "limit" query parameter
+// being set on the original request. Our production code passes ListOpts{} with no
+// Limit, so Manila always returns a single page regardless of server-side links —
+// pagination is effectively off for the NFS path. A test exercising it would not
+// reflect production behavior.

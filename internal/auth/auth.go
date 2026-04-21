@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gophercloud/gophercloud/v2"
@@ -11,12 +13,14 @@ import (
 	"go.opentelemetry.io/otel/codes"
 
 	"snapshot-cli/internal/config"
+	"snapshot-cli/internal/schema"
 )
 
 var tracer = otel.Tracer("snapshot-cli/internal/auth")
 
 // NewSharedFileSystemClient creates an authenticated Manila (Shared File System v2) service client.
-// It performs a full Keystone v3 authentication on every call.
+// It performs a full Keystone v3 authentication on every call and, unless
+// auth.SkipVersionCheck is set, validates that Manila v2 is reachable.
 func NewSharedFileSystemClient(ctx context.Context, auth *config.Auth) (*gophercloud.ServiceClient, error) {
 	ctx, span := tracer.Start(ctx, "auth.shared_filesystem.init")
 	defer span.End()
@@ -38,12 +42,22 @@ func NewSharedFileSystemClient(ctx context.Context, auth *config.Auth) (*gopherc
 		return nil, err
 	}
 
+	if !auth.SkipVersionCheck {
+		if result := schema.ValidateManilaV2(client); !result.Valid {
+			vErr := fmt.Errorf("manila v2 validation failed: %s (%s)", result.Message, result.Details)
+			span.RecordError(vErr)
+			span.SetStatus(codes.Error, vErr.Error())
+			return nil, vErr
+		}
+	}
+
 	span.SetStatus(codes.Ok, "")
 	return client, nil
 }
 
 // NewBlockStorageClient creates an authenticated Cinder (Block Storage v3) service client.
-// It performs a full Keystone v3 authentication on every call.
+// It performs a full Keystone v3 authentication on every call and, unless
+// auth.SkipVersionCheck is set, validates that Cinder v3 is reachable.
 func NewBlockStorageClient(ctx context.Context, auth *config.Auth) (*gophercloud.ServiceClient, error) {
 	ctx, span := tracer.Start(ctx, "auth.block_storage.init")
 	defer span.End()
@@ -65,13 +79,31 @@ func NewBlockStorageClient(ctx context.Context, auth *config.Auth) (*gophercloud
 		return nil, err
 	}
 
+	if !auth.SkipVersionCheck {
+		if result := schema.ValidateCinderV3(client); !result.Valid {
+			vErr := fmt.Errorf("cinder v3 validation failed: %s (%s)", result.Message, result.Details)
+			span.RecordError(vErr)
+			span.SetStatus(codes.Error, vErr.Error())
+			return nil, vErr
+		}
+	}
+
 	span.SetStatus(codes.Ok, "")
 	return client, nil
 }
 
+// ErrAuthURLMissing is returned when Auth.AuthURL is empty but authentication is requested.
+var ErrAuthURLMissing = errors.New("auth URL is empty")
+
 func newAuthenticatedProviderClient(ctx context.Context, auth *config.Auth) (*gophercloud.ProviderClient, error) {
 	ctx, span := tracer.Start(ctx, "auth.keystone.authenticate")
 	defer span.End()
+
+	if auth.AuthURL == "" {
+		span.RecordError(ErrAuthURLMissing)
+		span.SetStatus(codes.Error, ErrAuthURLMissing.Error())
+		return nil, ErrAuthURLMissing
+	}
 
 	opts := &tokens.AuthOptions{
 		IdentityEndpoint: auth.AuthURL,
@@ -99,6 +131,14 @@ func newAuthenticatedProviderClient(ctx context.Context, auth *config.Auth) (*go
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
+	}
+
+	if !auth.SkipVersionCheck {
+		if _, err = DetectVersions(ctx, provider); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
 	}
 
 	span.SetStatus(codes.Ok, "")

@@ -10,12 +10,27 @@ import (
 )
 
 const (
-	OutputTable = "table"
-	OutputJSON  = "json"
+	outputTable = "table"
+	outputJSON  = "json"
 )
 
-// WriteJSON marshals d to JSON and writes it to stdout followed by a newline.
-func WriteJSON(d any) error {
+// Render writes data to stdout in the requested format ("table" or "json").
+// header is ignored when output == "json". For unsupported formats, returns an error.
+// Centralises the "switch output { case table, case json, default }" that most
+// commands used to repeat inline.
+func Render(output string, data, header any) error {
+	switch output {
+	case outputTable:
+		return writeAsTable(data, header)
+	case outputJSON:
+		return writeJSON(data)
+	default:
+		return fmt.Errorf("unsupported output format: %q", output)
+	}
+}
+
+// writeJSON marshals d to JSON and writes it to stdout followed by a newline.
+func writeJSON(d any) error {
 	b, err := json.Marshal(d)
 	if err != nil {
 		return fmt.Errorf("%s: %w", "could not marshal JSON", err)
@@ -28,9 +43,9 @@ func WriteJSON(d any) error {
 	return nil
 }
 
-// WriteAsTable renders input as an ASCII table to stdout using the provided column headers.
+// writeAsTable renders input as an ASCII table to stdout using the provided column headers.
 // If input is a slice, each element is added as a row; otherwise input is rendered as a single row.
-func WriteAsTable(input, header interface{}) (err error) {
+func writeAsTable(input, header any) (err error) {
 	t := tablewriter.NewWriter(os.Stdout)
 	t.Header(header)
 	if isSlice(input) {

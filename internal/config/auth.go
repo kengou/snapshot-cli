@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"errors"
 	"os"
 	"strings"
@@ -20,9 +19,21 @@ type Auth struct {
 	DetectedVersions  map[string]string // Cinder and Manila versions detected during init
 }
 
+// skipVersionCheckGlobal is populated by cmd.root from the --skip-version-check
+// CLI flag so that subsequent ReadAuthConfig calls honor it without plumbing
+// the value through every caller.
+var skipVersionCheckGlobal bool
+
+// SetSkipVersionCheck wires the --skip-version-check CLI flag into this
+// package so that subsequent ReadAuthConfig calls set Auth.SkipVersionCheck.
+func SetSkipVersionCheck(v bool) {
+	skipVersionCheckGlobal = v
+}
+
 // ReadAuthConfig reads a given configuration file and returns the ViceConfig object and if applicable an error.
 func ReadAuthConfig() (authConfig *Auth, err error) {
 	authConfig = readEnv()
+	authConfig.SkipVersionCheck = skipVersionCheckGlobal
 	return authConfig, authConfig.verify() //nolint:gocritic
 }
 
@@ -64,18 +75,5 @@ func (a *Auth) verify() error {
 	if len(errs) > 0 {
 		return errors.New("missing " + strings.Join(errs, ", "))
 	}
-	return nil
-}
-
-// ValidateVersions checks if Cinder v3 and Manila v2 are available.
-// It returns an error if versions are incompatible and --skip-version-check was not set.
-// Note: This is called separately by command handlers via auth.DetectVersions,
-// not during ReadAuthConfig, to allow commands that don't need both services to succeed.
-func (a *Auth) ValidateVersions(_ context.Context) error {
-	if a.SkipVersionCheck {
-		return nil
-	}
-	// Version validation is performed by the command handlers
-	// that call auth.DetectVersions() explicitly
 	return nil
 }

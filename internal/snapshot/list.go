@@ -2,74 +2,47 @@ package snapshot
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/gophercloud/gophercloud/v2"
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
 	"snapshot-cli/internal/util"
 )
 
 // ListSnapshotsCmd lists all snapshots for either block storage (snapOpts.Volume)
-// or shared filesystems (snapOpts.Share).
-// If snapOpts.client is already set (e.g. in tests), auth is skipped.
-func ListSnapshotsCmd(ctx context.Context, snapOpts *SnapShotOpts, output string) error {
-	if snapOpts.client == nil {
-		authConfig, err := config.ReadAuthConfig()
+// or shared filesystems (snapOpts.Share). Caller supplies the client.
+func ListSnapshotsCmd(ctx context.Context, snapOpts *SnapShotOpts, output string, client *gophercloud.ServiceClient) (err error) {
+	ctx, span := startListSpan(ctx, snapOpts.VolumeID, snapOpts.ShareID)
+	defer func() {
 		if err != nil {
-			return err
+			span.RecordError(err)
 		}
-		switch {
-		case snapOpts.Volume:
-			snapOpts.client, err = auth.NewBlockStorageClient(ctx, authConfig)
-		case snapOpts.Share:
-			snapOpts.client, err = auth.NewSharedFileSystemClient(ctx, authConfig)
-		}
-		if err != nil {
-			return err
-		}
-	}
+		span.End()
+	}()
 
 	switch {
 	case snapOpts.Volume:
-		pages, err := blockSnapshot.List(snapOpts.client, blockSnapshot.ListOpts{}).AllPages(ctx)
-		if err != nil {
-			return err
+		pages, lErr := blockSnapshot.List(client, blockSnapshot.ListOpts{}).AllPages(ctx)
+		if lErr != nil {
+			return lErr
 		}
-		allSnapshots, err := blockSnapshot.ExtractSnapshots(pages)
-		if err != nil {
-			return err
+		allSnapshots, xErr := blockSnapshot.ExtractSnapshots(pages)
+		if xErr != nil {
+			return xErr
 		}
-
-		switch output {
-		case util.OutputTable:
-			return util.WriteAsTable(allSnapshots, snapshotBlockHeader)
-		case util.OutputJSON:
-			return util.WriteJSON(allSnapshots)
-		default:
-			return fmt.Errorf("unsupported output format: %q", output)
-		}
+		return util.Render(output, allSnapshots, snapshotBlockHeader)
 
 	case snapOpts.Share:
-		pages, err := nfsSnapshot.ListDetail(snapOpts.client, nfsSnapshot.ListOpts{}).AllPages(ctx)
-		if err != nil {
-			return err
+		pages, lErr := nfsSnapshot.ListDetail(client, nfsSnapshot.ListOpts{}).AllPages(ctx)
+		if lErr != nil {
+			return lErr
 		}
-		allSnapshots, err := nfsSnapshot.ExtractSnapshots(pages)
-		if err != nil {
-			return err
+		allSnapshots, xErr := nfsSnapshot.ExtractSnapshots(pages)
+		if xErr != nil {
+			return xErr
 		}
-
-		switch output {
-		case util.OutputTable:
-			return util.WriteAsTable(allSnapshots, snapshotNfsHeader)
-		case util.OutputJSON:
-			return util.WriteJSON(allSnapshots)
-		default:
-			return fmt.Errorf("unsupported output format: %q", output)
-		}
+		return util.Render(output, allSnapshots, snapshotNfsHeader)
 	}
 	return nil
 }

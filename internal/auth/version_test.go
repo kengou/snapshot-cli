@@ -1,26 +1,133 @@
 package auth
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"testing"
+
+	"github.com/gophercloud/gophercloud/v2"
 )
 
-// Note: Full integration tests for DetectVersions require a real OpenStack environment
-// or complex HTTP mocking. Unit test coverage is limited by gophercloud v2's
-// internal endpoint resolution logic. Validation is primarily tested via E2E tests
-// in cmd_integration_test.go with mocked OpenStack endpoints.
+// newProviderWithLocator builds a ProviderClient whose EndpointLocator
+// returns the caller-supplied endpoint/error for the given service type.
+// Any unexpected service type returns ErrEndpointNotFound.
+func newProviderWithLocator(locator gophercloud.EndpointLocator) *gophercloud.ProviderClient {
+	return &gophercloud.ProviderClient{
+		IdentityEndpoint: "http://example.invalid/identity/",
+		EndpointLocator:  locator,
+	}
+}
 
-func TestDetectVersions_DocumentationOnly(t *testing.T) {
-	// This test documents the DetectVersions function behavior.
-	// Actual testing is done in cmd_integration_test.go where we mock
-	// OpenStack API responses and validate version detection works end-to-end.
-	//
-	// DetectVersions(ctx, provider) returns:
-	// - ServiceVersions{CinderVersion: "v3", ManilaVersion: "v2"} on success
-	// - error if either Cinder v3 or Manila v2 cannot be initialized
-	//
-	// To test this function:
-	// 1. Set up OpenStack environment variables (OS_AUTH_URL, etc.)
-	// 2. Run against a real OpenStack instance
-	// 3. Or use mocked HTTP endpoints in integration tests
-	t.Logf("DetectVersions validates Cinder v3 and Manila v2 availability")
+func TestDetectVersions_BothServicesAvailable(t *testing.T) {
+	provider := newProviderWithLocator(func(eo gophercloud.EndpointOpts) (string, error) {
+		switch eo.Type {
+		case "block-storage", "volumev3":
+			return "http://cinder.invalid/v3/", nil
+		case "shared-file-system", "sharev2":
+			return "http://manila.invalid/v2/", nil
+		}
+		return "", gophercloud.ErrEndpointNotFound{}
+	})
+
+	sv, err := DetectVersions(context.Background(), provider)
+	if err != nil {
+		t.Fatalf("DetectVersions returned error: %v", err)
+	}
+	if sv.CinderVersion != "v3" {
+		t.Errorf("CinderVersion = %q, want v3", sv.CinderVersion)
+	}
+	if sv.ManilaVersion != "v2" {
+		t.Errorf("ManilaVersion = %q, want v2", sv.ManilaVersion)
+	}
+}
+
+func TestDetectVersions_CinderMissing(t *testing.T) {
+	provider := newProviderWithLocator(func(eo gophercloud.EndpointOpts) (string, error) {
+		switch eo.Type {
+		case "shared-file-system", "sharev2":
+			return "http://manila.invalid/v2/", nil
+		}
+		return "", gophercloud.ErrEndpointNotFound{}
+	})
+
+	sv, err := DetectVersions(context.Background(), provider)
+	if err == nil {
+		t.Fatalf("expected error when Cinder endpoint missing, got nil (sv=%+v)", sv)
+	}
+	if !strings.Contains(err.Error(), "Cinder") {
+		t.Errorf("error should mention Cinder, got: %v", err)
+	}
+}
+
+func TestDetectVersions_ManilaMissing(t *testing.T) {
+	provider := newProviderWithLocator(func(eo gophercloud.EndpointOpts) (string, error) {
+		switch eo.Type {
+		case "block-storage", "volumev3":
+			return "http://cinder.invalid/v3/", nil
+		}
+		return "", gophercloud.ErrEndpointNotFound{}
+	})
+
+	sv, err := DetectVersions(context.Background(), provider)
+	if err == nil {
+		t.Fatalf("expected error when Manila endpoint missing, got nil (sv=%+v)", sv)
+	}
+	if !strings.Contains(err.Error(), "Manila") {
+		t.Errorf("error should mention Manila, got: %v", err)
+	}
+}
+
+func TestDetectVersions_BothMissing(t *testing.T) {
+	provider := newProviderWithLocator(func(eo gophercloud.EndpointOpts) (string, error) {
+		return "", gophercloud.ErrEndpointNotFound{}
+	})
+
+	sv, err := DetectVersions(context.Background(), provider)
+	if err == nil {
+		t.Fatalf("expected error when no endpoints available, got nil (sv=%+v)", sv)
+	}
+	// Cinder is checked first, so that's the one we expect to see in the error.
+	if !strings.Contains(err.Error(), "Cinder") {
+		t.Errorf("error should mention Cinder (checked first), got: %v", err)
+	}
+}
+
+func TestDetectVersions_LocatorReturnsGenericError(t *testing.T) {
+	sentinel := errors.New("keystone unreachable")
+	provider := newProviderWithLocator(func(eo gophercloud.EndpointOpts) (string, error) {
+		return "", sentinel
+	})
+
+	_, err := DetectVersions(context.Background(), provider)
+	if err == nil {
+		t.Fatal("expected error when locator fails, got nil")
+	}
+	if !errors.Is(err, sentinel) {
+		t.Errorf("returned error should wrap %v, got: %v", sentinel, err)
+	}
+}
+
+func TestDetectVersions_CinderMissingDoesNotShortCircuitOnManila(t *testing.T) {
+	// Confirm Manila check is skipped entirely when Cinder fails
+	// (i.e. we fail fast, not partially).
+	manilaCalled := false
+	provider := newProviderWithLocator(func(eo gophercloud.EndpointOpts) (string, error) {
+		switch eo.Type {
+		case "block-storage", "volumev3":
+			return "", errors.New("cinder catalog entry missing")
+		case "shared-file-system", "sharev2":
+			manilaCalled = true
+			return "http://manila.invalid/v2/", nil
+		}
+		return "", gophercloud.ErrEndpointNotFound{}
+	})
+
+	_, err := DetectVersions(context.Background(), provider)
+	if err == nil {
+		t.Fatal("expected error when Cinder fails, got nil")
+	}
+	if manilaCalled {
+		t.Error("Manila locator should not be invoked after Cinder failure; fail fast")
+	}
 }

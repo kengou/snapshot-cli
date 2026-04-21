@@ -7,8 +7,6 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/shares"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
 	"snapshot-cli/internal/util"
 )
 
@@ -45,22 +43,9 @@ var nfsHeader = []string{
 	"updated_at",
 }
 
-// RunListSharedFileSystems lists all Manila shares in the current project
-// and writes them to stdout in the requested output format.
-func RunListSharedFileSystems(ctx context.Context, output string) error {
-	authConfig, err := config.ReadAuthConfig()
-	if err != nil {
-		return err
-	}
-	sharedClient, err := auth.NewSharedFileSystemClient(ctx, authConfig)
-	if err != nil {
-		return err
-	}
-	return listSharedFileSystems(ctx, output, sharedClient)
-}
-
-// listSharedFileSystems is the testable core: it accepts a pre-built client.
-func listSharedFileSystems(ctx context.Context, output string, sharedClient *gophercloud.ServiceClient) error {
+// ListSharedFileSystems lists all Manila shares in the current project
+// and writes them to stdout in the requested output format. Caller supplies the client.
+func ListSharedFileSystems(ctx context.Context, output string, sharedClient *gophercloud.ServiceClient) error {
 	nfsPage, err := shares.ListDetail(sharedClient, shares.ListOpts{}).AllPages(ctx)
 	if err != nil {
 		return err
@@ -75,12 +60,5 @@ func listSharedFileSystems(ctx context.Context, output string, sharedClient *gop
 		return nil
 	}
 
-	switch output {
-	case util.OutputTable:
-		return util.WriteAsTable(nfsList, nfsHeader)
-	case util.OutputJSON:
-		return util.WriteJSON(nfsList)
-	default:
-		return fmt.Errorf("unsupported output format: %q", output)
-	}
+	return util.Render(output, nfsList, nfsHeader)
 }
