@@ -3,57 +3,43 @@ package snapshot
 import (
 	"context"
 
+	"github.com/gophercloud/gophercloud/v2"
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
 	"snapshot-cli/internal/util"
 )
 
-func GetSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output string) error {
-	authConfig, err := config.ReadAuthConfig()
-	if err != nil {
+// GetSnapshotCmd retrieves a single snapshot by ID.
+// Set snapOpts.Volume for block storage or snapOpts.Share for shared filesystems.
+// The snapshot ID must be provided in snapOpts.SnapshotID. Caller supplies the client.
+func GetSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output string, client *gophercloud.ServiceClient) (err error) {
+	if err = util.ValidateUUID(snapOpts.SnapshotID); err != nil {
 		return err
 	}
 
-	if snapOpts.VolumeID != "" {
-		snapOpts.client, err = auth.NewBlockStorageClient(ctx, authConfig)
+	ctx, span := startGetSpan(ctx, snapOpts.SnapshotID)
+	defer func() {
 		if err != nil {
-			return err
+			span.RecordError(err)
 		}
+		span.End()
+	}()
 
-		snapShot := blockSnapshot.Get(ctx, snapOpts.client, snapOpts.VolumeID)
-		result, err := snapShot.Extract()
-		if err != nil {
-			return err
+	switch {
+	case snapOpts.Volume:
+		result, gErr := blockSnapshot.Get(ctx, client, snapOpts.SnapshotID).Extract()
+		if gErr != nil {
+			return gErr
 		}
+		return util.Render(output, result, snapshotBlockHeader)
 
-		switch output {
-		case util.OutputTable:
-			return util.WriteAsTable(result, snapshotBlockHeader)
-		case util.OutputJSON:
-			return util.WriteJSON(result)
+	case snapOpts.Share:
+		result, gErr := nfsSnapshot.Get(ctx, client, snapOpts.SnapshotID).Extract()
+		if gErr != nil {
+			return gErr
 		}
-	} else if snapOpts.ShareID != "" {
-		snapOpts.client, err = auth.NewSharedFileSystemClient(ctx, authConfig)
-		if err != nil {
-			return err
-		}
-
-		snapShot := nfsSnapshot.Get(ctx, snapOpts.client, snapOpts.ShareID)
-		result, err := snapShot.Extract()
-
-		if err != nil {
-			return err
-		}
-
-		switch output {
-		case util.OutputTable:
-			return util.WriteAsTable(result, snapshotNfsHeader)
-		case util.OutputJSON:
-			return util.WriteJSON(result)
-		}
+		return util.Render(output, result, snapshotNfsHeader)
 	}
 
 	return nil

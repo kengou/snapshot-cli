@@ -3,12 +3,13 @@ name: Package Helm Chart and publish to GitHub Packages
 on:
   workflow_dispatch: {}
   push:
+    branches:
+      - main
     paths:
-        - 'charts/**'
+      - 'charts/**'
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -16,6 +17,9 @@ env:
 jobs:
   helm-release:
     runs-on: [ ubuntu-latest ]
+    permissions:
+      contents: write
+      packages: write
     strategy:
       fail-fast: false
       matrix:

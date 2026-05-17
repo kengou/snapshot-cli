@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
 	"snapshot-cli/internal/util"
 )
 
@@ -35,17 +34,10 @@ var volumeHeader = []string{
 	"os-vol-tenant-attr:tenant_id",
 }
 
-func RunListBlockStorage(ctx context.Context, output string) error {
-	authConfig, err := config.ReadAuthConfig()
-	if err != nil {
-		return err
-	}
-	blockClient, err := auth.NewBlockStorageClient(ctx, authConfig)
-	if err != nil {
-		return err
-	}
-
-	vol, err := volumes.List(blockClient, volumes.ListOpts{}).AllPages(context.TODO())
+// ListBlockStorage lists all Cinder volumes in the current project and writes
+// them to stdout in the requested output format. Caller supplies the client.
+func ListBlockStorage(ctx context.Context, output string, blockClient *gophercloud.ServiceClient) error {
+	vol, err := volumes.List(blockClient, volumes.ListOpts{}).AllPages(ctx)
 	if err != nil {
 		return err
 	}
@@ -59,11 +51,5 @@ func RunListBlockStorage(ctx context.Context, output string) error {
 		return nil
 	}
 
-	switch output {
-	case util.OutputTable:
-		return util.WriteAsTable(volumeList, volumeHeader)
-	case util.OutputJSON:
-		return util.WriteJSON(volumeList)
-	}
-	return nil
+	return util.Render(output, volumeList, volumeHeader)
 }
