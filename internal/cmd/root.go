@@ -6,21 +6,24 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"snapshot-cli/internal/config"
 )
 
+// VersionInfo holds build-time version metadata injected via ldflags or bininfo.
 type VersionInfo struct {
 	Version       string
 	GitCommitHash string
 	BuildDate     string
 }
 
-var (
-	debug bool
-)
+// skipVersionCheck is set by the persistent --skip-version-check flag and read
+// by auth config construction to bypass Cinder/Manila version detection.
+var skipVersionCheck bool
 
 func Execute(ctx context.Context, v *VersionInfo) {
 	if err := newRootCmd(v).ExecuteContext(ctx); err != nil {
-		fmt.Println(err)
+		fmt.Fprintln(os.Stderr, "snapshot-cli:", err)
 		os.Exit(1)
 	}
 }
@@ -36,14 +39,20 @@ func newRootCmd(v *VersionInfo) *cobra.Command {
 		SilenceUsage:  true,
 	}
 
+	cmd.PersistentFlags().BoolVar(&skipVersionCheck, "skip-version-check", false,
+		"skip OpenStack Cinder v3 / Manila v2 endpoint detection")
+
+	cmd.PersistentPreRunE = func(*cobra.Command, []string) error {
+		config.SetSkipVersionCheck(skipVersionCheck)
+		return nil
+	}
+
 	doNotSortFlags(cmd)
-	cmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug mode")
-	cmd.PersistentFlags().StringVar(&v.Version, "output", "json", "output format: json (default), table")
 
 	cmd.AddCommand(newSharedCmd())
 	cmd.AddCommand(newBlockCmd())
 	cmd.AddCommand(newSnapshotCmd())
-	cmd.AddCommand(newClenaupCmd())
+	cmd.AddCommand(newCleanupCmd())
 
 	return cmd
 }

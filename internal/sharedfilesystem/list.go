@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/shares"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
 	"snapshot-cli/internal/util"
 )
 
@@ -44,16 +43,9 @@ var nfsHeader = []string{
 	"updated_at",
 }
 
-func RunListSharedFileSystemSnapshots(ctx context.Context, output string) error {
-	authConfig, err := config.ReadAuthConfig()
-	if err != nil {
-		return err
-	}
-	sharedClient, err := auth.NewSharedFileSystemClient(ctx, authConfig)
-	if err != nil {
-		return err
-	}
-
+// ListSharedFileSystems lists all Manila shares in the current project
+// and writes them to stdout in the requested output format. Caller supplies the client.
+func ListSharedFileSystems(ctx context.Context, output string, sharedClient *gophercloud.ServiceClient) error {
 	nfsPage, err := shares.ListDetail(sharedClient, shares.ListOpts{}).AllPages(ctx)
 	if err != nil {
 		return err
@@ -68,12 +60,5 @@ func RunListSharedFileSystemSnapshots(ctx context.Context, output string) error 
 		return nil
 	}
 
-	switch output {
-	case util.OutputTable:
-		return util.WriteAsTable(nfsList, nfsHeader)
-	case util.OutputJSON:
-		return util.WriteJSON(nfsList)
-	}
-
-	return nil
+	return util.Render(output, nfsList, nfsHeader)
 }
