@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/gophercloud/gophercloud/v2 v2.12.0
 	github.com/olekukonko/tablewriter v1.1.4
-	github.com/sapcc/go-api-declarations v1.21.0
+	github.com/sapcc/go-api-declarations v1.21.1
 	github.com/spf13/cobra v1.10.2
 	go.opentelemetry.io/otel v1.43.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0
