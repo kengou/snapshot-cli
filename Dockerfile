@@ -1,5 +1,5 @@
 # Dockerfile for snapshot-cli
-FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.26@sha256:98fc714bfe32e7d3c539d63bda9b9cd089fd699dc3cbd1c534fec3c4deb9ca98 AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} golang:1.26@sha256:87a41d2539e5671777734e91f467499ed5eafb1fb1f77221dff2744db7a51775 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
