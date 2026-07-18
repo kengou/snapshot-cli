@@ -38,6 +38,12 @@ make lint           # run golangci-lint
 make docker         # build container image
 ```
 
+Or install directly:
+
+```bash
+go install github.com/kengou/snapshot-cli/cmd/snapshot-cli@latest
+```
+
 ## Authentication
 
 All commands authenticate via environment variables sourced from an OpenStack RC file:
@@ -82,12 +88,17 @@ snapshot-cli snapshot create --share-id  <id> [flags]
 |------|-------------|---------|
 | `--volume-id` | ID of the block storage volume to snapshot | |
 | `--share-id` | ID of the shared filesystem to snapshot | |
-| `--name` | Snapshot name (auto-generated from ID + timestamp if omitted) | |
+| `--name` | Base snapshot name; a UTC timestamp suffix (`-YYYYMMDDhhmm`) is always appended. Defaults to the resource ID | |
 | `--description` | Snapshot description | |
 | `--force` | Force snapshot even if volume is in-use (block storage only) | `false` |
 | `--cleanup` | Delete snapshots older than `--older-than` after creating | `false` |
-| `--older-than` | Age threshold for cleanup, e.g. `168h`, `720h` | `168h0m0s` |
+| `--older-than` | Age threshold for cleanup, e.g. `168h`, `720h` (minimum `1h`) | `168h0m0s` |
 | `--output` | Output format: `json`, `table` | `json` |
+
+With `--cleanup`, a single JSON document is emitted:
+`{"snapshot": {...}, "deleted_snapshots": ["<id>", ...]}`. If the cleanup step
+fails after the snapshot was created, a warning is printed to stderr and the
+command still exits 0 — retrying would create a duplicate snapshot.
 
 **Examples:**
 
@@ -157,6 +168,8 @@ snapshot-cli snapshot delete --share  --snapshot-id <id> [flags]
 | `--share` | Delete a shared filesystem snapshot | `false` |
 | `--output` | Output format: `json`, `table` | `json` |
 
+On success the command prints a confirmation: `{"deleted": "<snapshot-id>"}`.
+
 ---
 
 ### `cleanup` — Delete old snapshots
@@ -175,7 +188,9 @@ snapshot-cli cleanup --share  [flags]
 | `--share` | Clean up shared filesystem snapshots | `false` |
 | `--volume-id` | Restrict cleanup to snapshots of this volume | |
 | `--share-id` | Restrict cleanup to snapshots of this share | |
-| `--older-than` | Delete snapshots older than this duration | `168h0m0s` |
+| `--older-than` | Delete snapshots older than this duration (minimum `1h`) | `168h0m0s` |
+| `--dry-run` | List the snapshots that would be deleted without deleting them | `false` |
+| `--output` | Output format: `json`, `table` | `json` |
 
 **Examples:**
 
@@ -274,8 +289,8 @@ Run Jaeger locally and export traces:
 # Start Jaeger (with OTEL gRPC receiver on port 4317)
 docker run --rm -p 4317:4317 -p 16686:16686 jaegertracing/all-in-one
 
-# Export traces to Jaeger
-export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+# Export traces to Jaeger (http:// scheme = no TLS; use https:// for TLS)
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 snapshot-cli snapshot create --volume-id abc-123
 
 # View traces: http://localhost:16686
@@ -283,10 +298,13 @@ snapshot-cli snapshot create --volume-id abc-123
 
 ### Configuration
 
+Tracing is enabled only when an endpoint variable is set. The exporter honors
+the standard `OTEL_EXPORTER_OTLP_*` environment variables:
+
 | Variable | Description |
 |----------|-------------|
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | gRPC collector endpoint (e.g., `localhost:4317`) |
-| `OTEL_SDK_DISABLED` | Set to `false` to disable SDK |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | gRPC collector endpoint (e.g., `http://localhost:4317`) |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Traces-specific endpoint override |
 
 ### Instrumented Operations
 
@@ -346,9 +364,8 @@ sequenceDiagram
 |---------|-------------|-----|
 | `missing OS_AUTH_URL, OS_PASSWORD, ...` | OpenStack RC not sourced | `source openstack-rc.sh` |
 | `Authentication failed` | Wrong credentials or expired password | Verify `OS_USERNAME` / `OS_PASSWORD` |
-| `block storage (Cinder) service not available` | Cinder v3 not enabled or incompatible version | Check OpenStack has Cinder enabled; use `--skip-version-check` to bypass |
-| `shared filesystem (Manila) service not available` | Manila v2 not enabled or incompatible version | Check OpenStack has Manila enabled; use `--skip-version-check` to bypass |
-| `No endpoint found for block-storage` | Region mismatch or Cinder not enabled | Set `OS_REGION_NAME` correctly |
+| `No endpoint found for block-storage` | Region mismatch or Cinder v3 not enabled | Set `OS_REGION_NAME` correctly; check OpenStack has Cinder enabled |
+| `No endpoint found for shared-file-system` | Region mismatch or Manila v2 not enabled | Set `OS_REGION_NAME` correctly; check OpenStack has Manila enabled |
 | `Resource not found` | Invalid volume/share/snapshot ID | Confirm ID with `volumes list` or `nfs list` |
 | `Volume is in use` | Volume has active attachments | Use `--force` flag (block storage only) |
 | Command produces no output | Unrecognised `--output` value | Use `json` or `table` |
