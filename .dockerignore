@@ -1,0 +1,14 @@
+# Keep the build context to what `make build` needs: Go sources + Makefile.
+.git/
+.github/
+.claude/
+.idea/
+.vscode/
+bin/
+charts/
+tasks/
+cover.out
+*.md
+.DS_Store
+Dockerfile
+.dockerignore
