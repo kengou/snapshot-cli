@@ -7,7 +7,7 @@ import (
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
 
-	"snapshot-cli/internal/util"
+	"github.com/kengou/snapshot-cli/internal/util"
 )
 
 // ListSnapshotsCmd lists all snapshots for either block storage (snapOpts.Volume)

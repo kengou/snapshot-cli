@@ -5,7 +5,7 @@
 **Prerequisites:** Go 1.26+, Docker (optional, for container builds).
 
 ```bash
-git clone https://github.com/<org>/snapshot-cli.git
+git clone https://github.com/kengou/snapshot-cli.git
 cd snapshot-cli
 go mod download
 make build          # bin/snapshot-cli
@@ -15,7 +15,7 @@ make build          # bin/snapshot-cli
 
 ```
 snapshot-cli/
-├── cmd/main.go                     # entry point
+├── cmd/snapshot-cli/main.go        # entry point
 ├── internal/
 │   ├── auth/                       # Keystone authentication
 │   ├── cmd/                        # cobra command definitions
@@ -23,9 +23,9 @@ snapshot-cli/
 │   ├── blockstorage/               # Cinder (block storage) operations
 │   ├── sharedfilesystem/           # Manila (NFS) operations
 │   ├── snapshot/                   # cross-service snapshot operations
+│   ├── observability/              # OpenTelemetry tracing setup
 │   └── util/                       # shared output helpers
 ├── charts/                         # Helm chart
-├── manifest/                       # Kubernetes manifests
 └── Dockerfile
 ```
 
@@ -75,36 +75,12 @@ Common lint fixes:
 6. Add a godoc comment to every exported function.
 7. Add or extend tests in `*_test.go` files.
 
-## Version Detection & Validation
+## Service availability
 
-snapshot-cli automatically detects and validates OpenStack API versions (Cinder v3, Manila v2) at runtime.
-
-**How it works:**
-- During initialization, `auth.DetectVersions()` checks that required services are available
-- If version detection fails, the command exits with a helpful error message
-- Use the `--skip-version-check` flag to bypass validation (e.g., for testing or special environments)
-
-**Adding version detection to a command:**
-```go
-authConfig, err := config.ReadAuthConfig()
-if err != nil {
-    return fmt.Errorf("auth config: %w", err)
-}
-
-// Validate service versions (unless --skip-version-check is set)
-if !skipVersionCheck {
-    provider, err := auth.newAuthenticatedProviderClient(ctx, authConfig)
-    if err != nil {
-        return fmt.Errorf("authentication: %w", err)
-    }
-    _, err = auth.DetectVersions(ctx, provider)
-    if err != nil {
-        return fmt.Errorf("version validation: %w (use --skip-version-check to bypass)", err)
-    }
-}
-```
-
-Version detection is optional per-command; not all commands need to validate both Cinder and Manila availability.
+Commands only require the OpenStack service they actually use: endpoint
+resolution via gophercloud (`openstack.NewBlockStorageV3` / `NewSharedFileSystemV2`)
+fails with a descriptive error when the service is missing from the catalog.
+Do not add upfront checks that require unrelated services to be present.
 
 ## Observability & Tracing
 
@@ -123,7 +99,7 @@ import (
     "go.opentelemetry.io/otel/codes"
 )
 
-var tracer = otel.Tracer("snapshot-cli/internal/mymodule")
+var tracer = otel.Tracer("github.com/kengou/snapshot-cli/internal/mymodule")
 
 func MyOperation(ctx context.Context, param string) (err error) {
     ctx, span := tracer.Start(ctx, "my_operation")

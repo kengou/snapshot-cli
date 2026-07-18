@@ -633,7 +633,8 @@ func TestE2E_SnapshotCreate_Volume_WithNameAndDescription(t *testing.T) {
 
 // TestE2E_SnapshotCreate_Volume_WithCleanup tests the full create+cleanup flow:
 // create a snapshot, then delete snapshots older than 1h (all fake snapshots
-// use a 2022 timestamp so they always qualify).
+// use a 2022 timestamp so they always qualify). The output must be a single
+// JSON document combining the created snapshot and the deleted IDs.
 func TestE2E_SnapshotCreate_Volume_WithCleanup(t *testing.T) {
 	srv := setupE2EServer(t)
 	out, err := runE2ECmd(t, srv, "snapshot", "create",
@@ -643,9 +644,18 @@ func TestE2E_SnapshotCreate_Volume_WithCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Output contains cleanup result (deleted IDs) followed by created snapshot.
-	if !strings.Contains(out, e2eBlockSnapID) {
-		t.Errorf("expected block snapshot ID in output, got: %s", out)
+	var combined struct {
+		Snapshot         map[string]any `json:"snapshot"`
+		DeletedSnapshots []string       `json:"deleted_snapshots"`
+	}
+	if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(out)), &combined); jsonErr != nil {
+		t.Fatalf("output is not a single valid JSON document: %v\noutput: %s", jsonErr, out)
+	}
+	if combined.Snapshot["id"] != e2eBlockSnapID {
+		t.Errorf("expected created snapshot %s in output, got: %v", e2eBlockSnapID, combined.Snapshot)
+	}
+	if len(combined.DeletedSnapshots) == 0 {
+		t.Errorf("expected deleted snapshot IDs in output, got: %s", out)
 	}
 }
 
@@ -678,11 +688,18 @@ func TestE2E_SnapshotCreate_Share_WithCleanup(t *testing.T) {
 
 func TestE2E_SnapshotDelete_Volume(t *testing.T) {
 	srv := setupE2EServer(t)
-	_, err := runE2ECmd(t, srv, "snapshot", "delete",
+	out, err := runE2ECmd(t, srv, "snapshot", "delete",
 		"--snapshot-id", e2eBlockSnapID,
 		"--volume")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	var confirmation map[string]string
+	if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(out)), &confirmation); jsonErr != nil {
+		t.Fatalf("delete output is not valid JSON: %v\noutput: %s", jsonErr, out)
+	}
+	if confirmation["deleted"] != e2eBlockSnapID {
+		t.Errorf("expected {\"deleted\": %q}, got: %s", e2eBlockSnapID, out)
 	}
 }
 

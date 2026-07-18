@@ -2,19 +2,25 @@ image:
   repository: ghcr.io/kengou/snapshot-cli
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
+  # "main" is a mutable tag — pin a release tag (e.g. v1.2.3) for production.
   tag: main
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+# Defaults match the distroless/static:nonroot image (UID/GID 65532).
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
 
 resources: {}
   # limits:
@@ -24,7 +30,21 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
-# CronJob schedules
+# Time zone applied to both CronJob schedules.
+timeZone: "Etc/UTC"
+
+# Shared CronJob behavior for both jobs.
+cronJob:
+  # Forbid: a still-running snapshot job blocks the next scheduled run.
+  concurrencyPolicy: Forbid
+  # Skip a run entirely if it could not start within this window.
+  startingDeadlineSeconds: 300
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  # Retries per scheduled run before the Job is marked failed.
+  backoffLimit: 3
+
+# Cleanup CronJob — deletes snapshots older than --older-than.
 cleanup:
   schedule: "0 0 * * *"
   # schedule for snapshot cleanup
@@ -33,12 +53,14 @@ cleanup:
     - cleanup
     - --share
     - --older-than
-    - 168h # 7 days
+    - 168h  # 7 days
 
+# Create CronJob — disabled by default because args are installation-specific
+# (share ID, name, description). Set a schedule AND replace the example args
+# to enable it; the chart refuses to render placeholder args.
 create:
-  schedule: "0 2 * * *"
-  # schedule for snapshot creation
-  # every day at 2am
+  schedule: ""
+  # schedule: "0 2 * * *"   # every day at 2am
   args:
     - snapshot
     - create
@@ -50,16 +72,23 @@ create:
     - DESCRIPTION_PLACEHOLDER
     - --cleanup
     - --older-than
-    - 168h # 7 days
+    - 168h  # 7 days
 
 openstack:
-  enabled: false
+  # Name of the Secret that provides the OS_* environment variables.
+  # The CronJobs always consume this Secret via envFrom, so credentials
+  # never appear inline in the rendered manifests.
   secretName: "openstack-creds"
-  # Values for the secret, if you want to create it with the chart
-  # OS_AUTH_URL: "https://your-auth-url"
-  # OS_USERNAME: "your-username"
-  # OS_PASSWORD: "your-password"
-  # OS_USER_DOMAIN_NAME: "Default"
-  # OS_PROJECT_NAME: "your-project-name"
-  # OS_PROJECT_DOMAIN_NAME: "Default"
-  # OS_REGION_NAME: "your-region"
+  # Set createSecret to true to have the chart create the Secret from
+  # `credentials` below. Leave false to bring your own pre-existing Secret
+  # (recommended — e.g. managed by external-secrets or sealed-secrets).
+  createSecret: false
+  # Used only when createSecret is true. Keys become environment variables.
+  credentials: {}
+    # OS_AUTH_URL: "https://your-auth-url"
+    # OS_USERNAME: "your-username"
+    # OS_PASSWORD: "your-password"
+    # OS_USER_DOMAIN_NAME: "Default"
+    # OS_PROJECT_NAME: "your-project-name"
+    # OS_PROJECT_DOMAIN_NAME: "Default"
+    # OS_REGION_NAME: "your-region"   # optional

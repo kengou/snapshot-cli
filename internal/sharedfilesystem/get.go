@@ -7,7 +7,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/shares"
 
-	"snapshot-cli/internal/util"
+	"github.com/kengou/snapshot-cli/internal/util"
 )
 
 // GetSharedFileSystem retrieves the Manila share identified by shareID and writes

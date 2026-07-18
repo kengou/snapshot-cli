@@ -1,6 +1,18 @@
 apiVersion: v2
 name: snapshot-cli
-description: A Helm chart for snapshot-cli
+description: CronJobs that create and clean up OpenStack Cinder/Manila snapshots using snapshot-cli
 type: application
-version: 0.1.5
+version: 0.2.0
 appVersion: "main"
+home: https://github.com/kengou/snapshot-cli
+sources:
+  - https://github.com/kengou/snapshot-cli
+keywords:
+  - openstack
+  - cinder
+  - manila
+  - snapshots
+  - backup
+maintainers:
+  - name: kengou
+    url: https://github.com/kengou

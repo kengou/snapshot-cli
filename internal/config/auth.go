@@ -6,34 +6,21 @@ import (
 	"strings"
 )
 
-// Auth holds OpenStack authentication parameters and version validation settings.
+// Auth holds OpenStack authentication parameters sourced from OS_* environment variables.
 type Auth struct {
-	AuthURL           string            `yaml:"auth_url"`
-	RegionName        string            `yaml:"region_name"`
-	Username          string            `yaml:"username"`
-	UserDomainName    string            `yaml:"user_domain_name"`
-	Password          string            `yaml:"password"`
-	ProjectName       string            `yaml:"project_name"`
-	ProjectDomainName string            `yaml:"project_domain_name"`
-	SkipVersionCheck  bool              `yaml:"skip_version_check,omitempty"` // Allow bypass of version validation
-	DetectedVersions  map[string]string // Cinder and Manila versions detected during init
+	AuthURL           string
+	RegionName        string
+	Username          string
+	UserDomainName    string
+	Password          string
+	ProjectName       string
+	ProjectDomainName string
 }
 
-// skipVersionCheckGlobal is populated by cmd.root from the --skip-version-check
-// CLI flag so that subsequent ReadAuthConfig calls honor it without plumbing
-// the value through every caller.
-var skipVersionCheckGlobal bool
-
-// SetSkipVersionCheck wires the --skip-version-check CLI flag into this
-// package so that subsequent ReadAuthConfig calls set Auth.SkipVersionCheck.
-func SetSkipVersionCheck(v bool) {
-	skipVersionCheckGlobal = v
-}
-
-// ReadAuthConfig reads a given configuration file and returns the ViceConfig object and if applicable an error.
+// ReadAuthConfig reads the OS_* environment variables and returns the Auth
+// config, or an error listing any required variables that are missing.
 func ReadAuthConfig() (authConfig *Auth, err error) {
 	authConfig = readEnv()
-	authConfig.SkipVersionCheck = skipVersionCheckGlobal
 	return authConfig, authConfig.verify() //nolint:gocritic
 }
 

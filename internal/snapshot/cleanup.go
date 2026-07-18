@@ -12,20 +12,46 @@ import (
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
 
-	"snapshot-cli/internal/util"
+	"github.com/kengou/snapshot-cli/internal/util"
 )
 
 // maxConcurrentDeletions limits parallel snapshot delete calls to avoid overwhelming the API.
 const maxConcurrentDeletions = 5
 
 // CleanupSnapshot deletes snapshots that are older than snapOpts.OlderThan and have
-// status "available". Set snapOpts.Volume for block storage or snapOpts.Share for
-// shared filesystems. Optionally scope to a specific resource via snapOpts.VolumeID
-// or snapOpts.ShareID. When snapOpts.DryRun is true, the function returns the IDs
-// that would be deleted without issuing DELETE requests. Caller supplies the client.
-func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string, client *gophercloud.ServiceClient) (err error) {
-	olderThanDuration := parseDurationOrFallback(snapOpts.OlderThan)
+// status "available", then renders the deleted IDs in the requested output format.
+// Set snapOpts.Volume for block storage or snapOpts.Share for shared filesystems.
+// Optionally scope to a specific resource via snapOpts.VolumeID or snapOpts.ShareID.
+// When snapOpts.DryRun is true, the IDs that would be deleted are rendered without
+// issuing DELETE requests. Caller supplies the client.
+func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string, client *gophercloud.ServiceClient) error {
+	deleted, err := cleanupSnapshots(ctx, snapOpts, client)
+	if err != nil {
+		return err
+	}
+	return util.Render(output, deleted, deletedHeader)
+}
+
+// cleanupSnapshots performs the cleanup and returns the deleted (or, in dry-run
+// mode, the candidate) snapshot IDs without rendering any output. The returned
+// slice is non-nil (empty rather than nil) to guarantee valid JSON `[]` output.
+func cleanupSnapshots(ctx context.Context, snapOpts *SnapShotOpts, client *gophercloud.ServiceClient) (deleted []string, err error) {
+	olderThanDuration := snapOpts.OlderThan
+	if olderThanDuration <= 0 {
+		olderThanDuration = DefaultOlderThan
+	}
 	olderThan := time.Now().Add(-olderThanDuration)
+
+	if snapOpts.VolumeID != "" {
+		if vErr := util.ValidateUUID(snapOpts.VolumeID); vErr != nil {
+			return nil, vErr
+		}
+	}
+	if snapOpts.ShareID != "" {
+		if vErr := util.ValidateUUID(snapOpts.ShareID); vErr != nil {
+			return nil, vErr
+		}
+	}
 
 	ctx, span := startCleanupSpan(ctx, snapOpts.VolumeID, snapOpts.ShareID, int64(olderThanDuration.Seconds()))
 	defer func() {
@@ -43,15 +69,22 @@ func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string,
 		}
 		pages, lErr := blockSnapshot.List(client, listOpts).AllPages(ctx)
 		if lErr != nil {
-			return lErr
+			return nil, lErr
 		}
 		allSnapshots, xErr := blockSnapshot.ExtractSnapshots(pages)
 		if xErr != nil {
-			return xErr
+			return nil, xErr
 		}
 
-		deletedSnapshots := deleteBlockSnapshots(ctx, client, allSnapshots, olderThan, snapOpts.DryRun)
-		return util.Render(output, deletedSnapshots, "")
+		candidates := expiredIDs(allSnapshots, olderThan, func(s blockSnapshot.Snapshot) (string, time.Time) {
+			return s.ID, s.CreatedAt
+		})
+		if snapOpts.DryRun {
+			return candidates, nil
+		}
+		return runParallelDeletes(ctx, candidates, func(id string) error {
+			return blockSnapshot.Delete(ctx, client, id).ExtractErr()
+		}), nil
 
 	case snapOpts.Share:
 		listOpts := nfsSnapshot.ListOpts{Status: "available"}
@@ -61,54 +94,38 @@ func CleanupSnapshot(ctx context.Context, snapOpts *SnapShotOpts, output string,
 
 		pages, lErr := nfsSnapshot.ListDetail(client, listOpts).AllPages(ctx)
 		if lErr != nil {
-			return lErr
+			return nil, lErr
 		}
 		allSnapshots, xErr := nfsSnapshot.ExtractSnapshots(pages)
 		if xErr != nil {
-			return xErr
+			return nil, xErr
 		}
 
-		deletedSnapshots := deleteNFSSnapshots(ctx, client, allSnapshots, olderThan, snapOpts.DryRun)
-		return util.Render(output, deletedSnapshots, "")
+		candidates := expiredIDs(allSnapshots, olderThan, func(s nfsSnapshot.Snapshot) (string, time.Time) {
+			return s.ID, s.CreatedAt
+		})
+		if snapOpts.DryRun {
+			return candidates, nil
+		}
+		return runParallelDeletes(ctx, candidates, func(id string) error {
+			return nfsSnapshot.Delete(ctx, client, id).ExtractErr()
+		}), nil
 	}
 
-	return nil
+	return []string{}, nil
 }
 
-// deleteBlockSnapshots deletes block storage snapshots older than olderThan in parallel
-// and returns the IDs of successfully deleted snapshots. When dryRun is true, it returns
-// the IDs that would be deleted without issuing DELETE requests. The returned slice is
-// non-nil (empty slice rather than nil) to guarantee valid JSON `[]` output.
-func deleteBlockSnapshots(ctx context.Context, client *gophercloud.ServiceClient, snapshots []blockSnapshot.Snapshot, olderThan time.Time, dryRun bool) []string {
-	candidates := make([]string, 0, len(snapshots))
+// expiredIDs returns the IDs of all snapshots created before olderThan.
+// meta extracts the ID and creation timestamp from a snapshot of either kind.
+func expiredIDs[S any](snapshots []S, olderThan time.Time, meta func(S) (id string, createdAt time.Time)) []string {
+	ids := make([]string, 0, len(snapshots))
 	for _, snap := range snapshots {
-		if snap.CreatedAt.Before(olderThan) {
-			candidates = append(candidates, snap.ID)
+		id, createdAt := meta(snap)
+		if createdAt.Before(olderThan) {
+			ids = append(ids, id)
 		}
 	}
-	if dryRun {
-		return candidates
-	}
-	return runParallelDeletes(ctx, candidates, func(id string) error {
-		return blockSnapshot.Delete(ctx, client, id).ExtractErr()
-	})
-}
-
-// deleteNFSSnapshots deletes NFS snapshots older than olderThan in parallel
-// and returns the IDs of successfully deleted snapshots.
-func deleteNFSSnapshots(ctx context.Context, client *gophercloud.ServiceClient, snapshots []nfsSnapshot.Snapshot, olderThan time.Time, dryRun bool) []string {
-	candidates := make([]string, 0, len(snapshots))
-	for _, snap := range snapshots {
-		if snap.CreatedAt.Before(olderThan) {
-			candidates = append(candidates, snap.ID)
-		}
-	}
-	if dryRun {
-		return candidates
-	}
-	return runParallelDeletes(ctx, candidates, func(id string) error {
-		return nfsSnapshot.Delete(ctx, client, id).ExtractErr()
-	})
+	return ids
 }
 
 // runParallelDeletes invokes del for each id with a semaphore-bounded worker pool.
@@ -161,14 +178,4 @@ func runParallelDeletes(ctx context.Context, ids []string, del func(id string) e
 // injection when server-returned error messages include control characters.
 func sanitize(s string) string {
 	return strings.NewReplacer("\r", " ", "\n", " ", "\t", " ").Replace(s)
-}
-
-// parseDurationOrFallback parses a Go duration string (e.g. "168h", "720h").
-// If value is empty or not a valid duration, it returns the default of 168h (7 days).
-func parseDurationOrFallback(value string) time.Duration {
-	d, err := time.ParseDuration(value)
-	if err != nil {
-		return 168 * time.Hour // fallback to 7 days
-	}
-	return d
 }

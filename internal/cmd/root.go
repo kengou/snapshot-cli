@@ -3,11 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
-
-	"snapshot-cli/internal/config"
 )
 
 // VersionInfo holds build-time version metadata injected via ldflags or bininfo.
@@ -17,34 +14,21 @@ type VersionInfo struct {
 	BuildDate     string
 }
 
-// skipVersionCheck is set by the persistent --skip-version-check flag and read
-// by auth config construction to bypass Cinder/Manila version detection.
-var skipVersionCheck bool
-
-func Execute(ctx context.Context, v *VersionInfo) {
-	if err := newRootCmd(v).ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, "snapshot-cli:", err)
-		os.Exit(1)
-	}
+// Execute runs the root command and returns any error. The caller decides the
+// process exit code so that deferred cleanup (e.g. trace flushing) still runs.
+func Execute(ctx context.Context, v *VersionInfo) error {
+	return newRootCmd(v).ExecuteContext(ctx)
 }
 
 func newRootCmd(v *VersionInfo) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "snapshot-cli",
-		Short: "Command-line client for openstack-shares",
+		Short: "Command-line client for OpenStack Cinder and Manila snapshots",
 		Args:  cobra.NoArgs,
 		Version: fmt.Sprintf("%s, Git commit %s, built at %s",
 			v.Version, v.GitCommitHash, v.BuildDate),
 		SilenceErrors: true,
 		SilenceUsage:  true,
-	}
-
-	cmd.PersistentFlags().BoolVar(&skipVersionCheck, "skip-version-check", false,
-		"skip OpenStack Cinder v3 / Manila v2 endpoint detection")
-
-	cmd.PersistentPreRunE = func(*cobra.Command, []string) error {
-		config.SetSkipVersionCheck(skipVersionCheck)
-		return nil
 	}
 
 	doNotSortFlags(cmd)

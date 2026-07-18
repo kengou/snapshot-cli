@@ -3,26 +3,41 @@ on:
   push:
     branches:
       - main
+  # No paths filter: the suite runs in seconds, and unfiltered runs keep
+  # required checks from wedging on docs-only PRs.
   pull_request:
-    paths:
-      - 'internal/**'
-      - 'cmd/**'
-      - 'Dockerfile*'
-      - 'go.mod'
-      - 'go.sum'
-      - '.golangci.yaml'
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# All jobs use harden-runner in block mode. The allowlist covers GitHub
+# (checkout, action/toolchain downloads) and the Go module proxy; if a job
+# starts failing on a blocked call, the harden-runner annotation names the
+# endpoint to add.
 jobs:
   lint:
     runs-on: [ ubuntu-latest ]
+    timeout-minutes: 15
     steps:
-      - name: Harden the runner (Audit all outbound calls)
+      - name: Harden the runner (block all unexpected outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            codeload.github.com:443
+            dl.google.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            raw.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            sum.golang.org:443
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -37,13 +52,25 @@ jobs:
 
   test:
     runs-on: [ubuntu-latest]
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - name: Harden the runner (Audit all outbound calls)
+      - name: Harden the runner (block all unexpected outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            codeload.github.com:443
+            dl.google.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            raw.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            sum.golang.org:443
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -56,23 +83,32 @@ jobs:
 
       # ── Unit and E2E tests ────────────────────────────────────────────────────
       # E2E tests mock the OpenStack APIs via httptest.Server, so they run in
-      # ~3 seconds without any external dependencies.
+      # ~3 seconds without any external dependencies. Linting runs in its own
+      # job — not repeated here.
       - name: Run tests
         run: make test
 
-      # ── Lint (must pass after every code change) ──────────────────────────────
-      - name: golangci-lint
-        run: make lint
-
   build:
     runs-on: [ubuntu-latest]
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - name: Harden the runner (Audit all outbound calls)
+      - name: Harden the runner (block all unexpected outbound calls)
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
-          egress-policy: audit
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            codeload.github.com:443
+            dl.google.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            proxy.golang.org:443
+            raw.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            sum.golang.org:443
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:

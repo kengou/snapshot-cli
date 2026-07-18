@@ -9,9 +9,10 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// Supported values for the --output flag.
 const (
-	outputTable = "table"
-	outputJSON  = "json"
+	FormatTable = "table"
+	FormatJSON  = "json"
 )
 
 // Render writes data to stdout in the requested format ("table" or "json").
@@ -20,9 +21,9 @@ const (
 // commands used to repeat inline.
 func Render(output string, data, header any) error {
 	switch output {
-	case outputTable:
+	case FormatTable:
 		return writeAsTable(data, header)
-	case outputJSON:
+	case FormatJSON:
 		return writeJSON(data)
 	default:
 		return fmt.Errorf("unsupported output format: %q", output)

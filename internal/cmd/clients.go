@@ -5,8 +5,8 @@ import (
 
 	"github.com/gophercloud/gophercloud/v2"
 
-	"snapshot-cli/internal/auth"
-	"snapshot-cli/internal/config"
+	"github.com/kengou/snapshot-cli/internal/auth"
+	"github.com/kengou/snapshot-cli/internal/config"
 )
 
 // buildBlockClient reads the auth config and returns a Cinder v3 client.

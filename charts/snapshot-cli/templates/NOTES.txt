@@ -1,0 +1,31 @@
+{{ .Chart.Name }} {{ .Chart.Version }} installed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Credentials
+-----------
+The CronJobs read the OS_* environment variables from the Secret "{{ .Values.openstack.secretName }}".
+{{- if .Values.openstack.createSecret }}
+The chart created this Secret from openstack.credentials.
+{{- else }}
+This Secret is NOT managed by the chart — make sure it exists in namespace
+{{ .Release.Namespace }} with keys OS_AUTH_URL, OS_USERNAME, OS_PASSWORD,
+OS_USER_DOMAIN_NAME, OS_PROJECT_NAME, OS_PROJECT_DOMAIN_NAME (and optionally
+OS_REGION_NAME), or set openstack.createSecret=true.
+{{- end }}
+
+CronJobs
+--------
+{{- if .Values.cleanup.schedule }}
+cleanup: {{ .Values.cleanup.schedule }} ({{ .Values.timeZone }})
+{{- else }}
+cleanup: disabled (cleanup.schedule is empty)
+{{- end }}
+{{- if .Values.create.schedule }}
+create:  {{ .Values.create.schedule }} ({{ .Values.timeZone }})
+{{- else }}
+create:  disabled — set create.schedule and replace the example create.args
+         (share ID, name, description) to enable scheduled snapshot creation.
+{{- end }}
+
+Inspect the jobs with:
+  kubectl get cronjobs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} --tail=100

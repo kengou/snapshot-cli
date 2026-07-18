@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-var tracer = otel.Tracer("snapshot-cli/internal/snapshot")
+var tracer = otel.Tracer("github.com/kengou/snapshot-cli/internal/snapshot")
 
 // spanHelper wraps a trace.Span for convenient tracing.
 type spanHelper struct {

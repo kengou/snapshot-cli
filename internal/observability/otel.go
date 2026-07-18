@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sapcc/go-api-declarations/bininfo"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -13,40 +14,37 @@ import (
 )
 
 // InitTracerProvider initializes and returns an OpenTelemetry TracerProvider.
-// It configures OTLP gRPC exporter if OTEL_EXPORTER_OTLP_ENDPOINT is set.
-// If the endpoint is not set or connection fails, a no-op tracer provider is used.
+// Tracing is enabled only when OTEL_EXPORTER_OTLP_ENDPOINT (or the traces-specific
+// OTEL_EXPORTER_OTLP_TRACES_ENDPOINT) is set; otherwise a no-op provider is returned.
+// The exporter itself reads the standard OTEL_EXPORTER_OTLP_* environment variables
+// (endpoint, TLS/insecure via the URL scheme, headers, timeouts), so an endpoint
+// like http://localhost:4317 exports without TLS and https://... with TLS.
 func InitTracerProvider(ctx context.Context) (*trace.TracerProvider, error) {
-	// Check if OTEL is enabled
-	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if endpoint == "" {
+	if os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT") == "" && os.Getenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") == "" {
 		// OTEL disabled; return no-op provider
 		return trace.NewTracerProvider(), nil
 	}
 
-	// Create OTLP exporter
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithEndpoint(endpoint))
+	exporter, err := otlptracegrpc.New(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP trace exporter: %w", err)
 	}
 
-	// Create resource
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName("snapshot-cli"),
-			semconv.ServiceVersion(getVersion()),
+			semconv.ServiceVersion(bininfo.VersionOr("dev")),
 		),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
-	// Create tracer provider
 	tp := trace.NewTracerProvider(
 		trace.WithBatcher(exporter),
 		trace.WithResource(res),
 	)
 
-	// Set as global tracer provider
 	otel.SetTracerProvider(tp)
 
 	return tp, nil
@@ -58,13 +56,4 @@ func Shutdown(ctx context.Context, tp *trace.TracerProvider) error {
 		return nil
 	}
 	return tp.Shutdown(ctx)
-}
-
-// getVersion returns the application version or "dev" if not set.
-func getVersion() string {
-	version := os.Getenv("SNAPSHOT_CLI_VERSION")
-	if version == "" {
-		version = "dev"
-	}
-	return version
 }

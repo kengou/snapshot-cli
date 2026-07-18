@@ -7,7 +7,7 @@ import (
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 
-	"snapshot-cli/internal/util"
+	"github.com/kengou/snapshot-cli/internal/util"
 )
 
 // GetBlockStorage retrieves the Cinder volume identified by volID and writes
