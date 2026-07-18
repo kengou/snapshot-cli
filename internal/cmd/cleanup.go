@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"snapshot-cli/internal/snapshot"
+	"github.com/kengou/snapshot-cli/internal/snapshot"
 
 	"github.com/spf13/cobra"
 )
@@ -44,7 +44,7 @@ func newCleanupCmd() *cobra.Command {
 				VolumeID:  cmd.Flag("volume-id").Value.String(),
 				Share:     share,
 				ShareID:   cmd.Flag("share-id").Value.String(),
-				OlderThan: olderThan.String(),
+				OlderThan: olderThan,
 				DryRun:    dryRun,
 			}
 

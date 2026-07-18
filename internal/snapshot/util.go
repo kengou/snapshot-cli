@@ -20,8 +20,10 @@ type SnapShotOpts struct {
 	Force       bool
 	Name        string
 	Description string
-	OlderThan   string
-	Cleanup     bool
+	// OlderThan is the retention window for cleanup; values <= 0 fall back to
+	// DefaultOlderThan.
+	OlderThan time.Duration
+	Cleanup   bool
 	// DryRun — when true, CleanupSnapshot returns the IDs that would be
 	// deleted without issuing DELETE requests. Useful for previewing.
 	DryRun bool
@@ -34,3 +36,5 @@ var snapshotNfsHeader = []string{
 var snapshotBlockHeader = []string{
 	"ID", "Name", "Description", "Volume ID", "Status", "Size", "Metadata", "Progress", "Project ID", "Group Snapshot ID", "User ID", "Consumes Quota",
 }
+
+var deletedHeader = []string{"Deleted"}

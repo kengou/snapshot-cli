@@ -631,7 +631,7 @@ func TestCleanupSnapshot_Volume_DeletesOld(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 	captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -654,7 +654,7 @@ func TestCleanupSnapshot_Volume_NoneOldEnough(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 	captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -677,7 +677,7 @@ func TestCleanupSnapshot_Volume_UnsupportedFormat(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 	if err := CleanupSnapshot(context.Background(), opts, "yaml", client); err == nil || !strings.Contains(err.Error(), "unsupported output format") {
 		t.Errorf("expected unsupported format error, got: %v", err)
 	}
@@ -707,7 +707,7 @@ func TestCleanupSnapshot_Share_DeletesOld(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Share: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Share: true, OlderThan: 168 * time.Hour}
 	captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -738,7 +738,7 @@ func TestCleanupSnapshot_Volume_Table(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 	captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -764,7 +764,7 @@ func TestCleanupSnapshot_Share_Table(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Share: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Share: true, OlderThan: 168 * time.Hour}
 	captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "table", client); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -935,7 +935,7 @@ func TestCleanupSnapshot_Volume_PartialFail(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 	out := captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Fatalf("CleanupSnapshot returned error: %v", err)
@@ -974,7 +974,7 @@ func TestCleanupSnapshot_Volume_DryRun_SkipsDeletes(t *testing.T) {
 	})
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h", DryRun: true}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour, DryRun: true}
 	out := captureStdout(t, func() {
 		if err := CleanupSnapshot(context.Background(), opts, "json", client); err != nil {
 			t.Fatalf("CleanupSnapshot returned error: %v", err)
@@ -1007,7 +1007,7 @@ func TestCleanupSnapshot_Volume_CtxCancelledBeforeStart(t *testing.T) {
 	cancel() // cancel before calling
 
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 	// With a cancelled context, the AllPages call should return an error.
 	// We don't assert the exact error string — only that we don't panic and
 	// return promptly rather than hanging.
@@ -1063,7 +1063,7 @@ func TestCleanupSnapshot_Volume_CtxCancelledMidway(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	client := newFakeClient(server)
-	opts := &SnapShotOpts{Volume: true, OlderThan: "168h"}
+	opts := &SnapShotOpts{Volume: true, OlderThan: 168 * time.Hour}
 
 	// Cancel 100ms after Cleanup starts — some DELETEs will be in flight but
 	// most will be waiting for the semaphore.

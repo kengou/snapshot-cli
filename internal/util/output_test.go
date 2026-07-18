@@ -225,11 +225,11 @@ func FuzzWriteJSON(f *testing.F) {
 // Constants
 
 func TestOutputConstants(t *testing.T) {
-	if outputJSON != "json" {
-		t.Errorf("outputJSON = %q, want %q", outputJSON, "json")
+	if FormatJSON != "json" {
+		t.Errorf("FormatJSON = %q, want %q", FormatJSON, "json")
 	}
-	if outputTable != "table" {
-		t.Errorf("outputTable = %q, want %q", outputTable, "table")
+	if FormatTable != "table" {
+		t.Errorf("FormatTable = %q, want %q", FormatTable, "table")
 	}
 }
 
@@ -240,7 +240,7 @@ func TestRender_JSON_DelegatesToWriteJSON(t *testing.T) {
 		ID string `json:"id"`
 	}
 	out := captureStdout(t, func() {
-		if err := Render(outputJSON, row{ID: "abc"}, nil); err != nil {
+		if err := Render(FormatJSON, row{ID: "abc"}, nil); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
@@ -254,7 +254,7 @@ func TestRender_Table_DelegatesToWriteAsTable(t *testing.T) {
 		ID string
 	}
 	out := captureStdout(t, func() {
-		if err := Render(outputTable, row{ID: "xyz"}, []string{"ID"}); err != nil {
+		if err := Render(FormatTable, row{ID: "xyz"}, []string{"ID"}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})

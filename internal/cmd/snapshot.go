@@ -3,11 +3,12 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/gophercloud/gophercloud/v2"
 	"github.com/spf13/cobra"
 
-	"snapshot-cli/internal/snapshot"
+	"github.com/kengou/snapshot-cli/internal/snapshot"
 )
 
 const (
@@ -118,6 +119,14 @@ func newCreateSnapshotCmd() *cobra.Command {
 			ctx := cmd.Context()
 			volumeID := cmd.Flag("volume-id").Value.String()
 			shareID := cmd.Flag("share-id").Value.String()
+			cleanup, _ := cmd.Flags().GetBool("cleanup") //nolint:errcheck // flag defined below
+			olderThan, err := cmd.Flags().GetDuration("older-than")
+			if err != nil {
+				return fmt.Errorf("invalid --older-than: %w", err)
+			}
+			if cleanup && olderThan < minOlderThan {
+				return fmt.Errorf("--older-than must be at least %s to avoid accidental mass deletion", minOlderThan)
+			}
 			client, err := clientForKind(ctx, volumeID != "", shareID != "")
 			if err != nil {
 				return err
@@ -128,8 +137,8 @@ func newCreateSnapshotCmd() *cobra.Command {
 				Force:       cmd.Flag("force").Value.String() == defaultTrue,
 				Name:        cmd.Flag("name").Value.String(),
 				Description: cmd.Flag("description").Value.String(),
-				Cleanup:     cmd.Flag("cleanup").Value.String() == defaultTrue,
-				OlderThan:   cmd.Flag("older-than").Value.String(),
+				Cleanup:     cleanup,
+				OlderThan:   olderThan,
 			}
 			return snapshot.CreateSnapshotCmd(ctx, snapShotOpts, cmd.Flag("output").Value.String(), client)
 		},

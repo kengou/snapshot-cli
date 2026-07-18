@@ -8,10 +8,11 @@ Observability is **disabled by default** and requires an OpenTelemetry collector
 
 ## Enabling Traces
 
-Set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable to point to an OTEL collector:
+Set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable to point to an OTEL collector.
+The URL scheme controls transport security: `http://` exports without TLS, `https://` with TLS.
 
 ```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 snapshot-cli snapshot list --volume
 ```
 
@@ -19,11 +20,17 @@ Traces will be exported to the collector at `localhost:4317` (gRPC protocol).
 
 ## Configuration
 
+Tracing is enabled only when an endpoint variable is set. The exporter honors the
+standard [`OTEL_EXPORTER_OTLP_*` environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/)
+(headers, timeouts, certificates, ...); the most relevant:
+
 | Environment Variable | Default | Description |
 |----------------------|---------|-------------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `` (disabled) | gRPC endpoint for OTEL Collector |
-| `OTEL_SDK_DISABLED` | `false` | Disable OTEL SDK entirely |
-| `SNAPSHOT_CLI_VERSION` | `dev` | Version string attached to traces |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | `` | Traces-specific endpoint override |
+
+The service version attached to traces comes from the build metadata injected
+via ldflags (see the `Makefile`).
 
 ## Quick Start: Local Jaeger
 
@@ -38,7 +45,7 @@ docker run --rm \
   jaegertracing/all-in-one
 
 # In another terminal, point snapshot-cli to Jaeger
-export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 snapshot-cli snapshot create --volume-id abc-123 --name test-snap
 
 # View traces in Jaeger UI

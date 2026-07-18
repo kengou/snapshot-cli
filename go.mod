@@ -1,4 +1,4 @@
-module snapshot-cli
+module github.com/kengou/snapshot-cli
 
 go 1.26
 

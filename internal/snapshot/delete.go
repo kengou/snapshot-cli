@@ -7,8 +7,13 @@ import (
 	blockSnapshot "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/snapshots"
 	nfsSnapshot "github.com/gophercloud/gophercloud/v2/openstack/sharedfilesystems/v2/snapshots"
 
-	"snapshot-cli/internal/util"
+	"github.com/kengou/snapshot-cli/internal/util"
 )
+
+// deletedSnapshot is the output document confirming a successful delete.
+type deletedSnapshot struct {
+	Deleted string `json:"deleted"`
+}
 
 // DeleteSnapshotCmd deletes the snapshot identified by snapOpts.SnapshotID.
 // Set snapOpts.Volume for block storage or snapOpts.Share for shared filesystems.
@@ -28,17 +33,15 @@ func DeleteSnapshotCmd(ctx context.Context, snapOpts *SnapShotOpts, output strin
 
 	switch {
 	case snapOpts.Volume:
-		result := blockSnapshot.Delete(ctx, client, snapOpts.SnapshotID)
-		if result.Err != nil {
-			return result.Err
+		if err = blockSnapshot.Delete(ctx, client, snapOpts.SnapshotID).ExtractErr(); err != nil {
+			return err
 		}
-		return util.Render(output, result, snapshotBlockHeader)
 	case snapOpts.Share:
-		result := nfsSnapshot.Delete(ctx, client, snapOpts.SnapshotID)
-		if result.Err != nil {
-			return result.Err
+		if err = nfsSnapshot.Delete(ctx, client, snapOpts.SnapshotID).ExtractErr(); err != nil {
+			return err
 		}
-		return util.Render(output, result, snapshotNfsHeader)
+	default:
+		return nil
 	}
-	return nil
+	return util.Render(output, deletedSnapshot{Deleted: snapOpts.SnapshotID}, deletedHeader)
 }

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"snapshot-cli/internal/sharedfilesystem"
+	"github.com/kengou/snapshot-cli/internal/sharedfilesystem"
 
 	"github.com/spf13/cobra"
 )

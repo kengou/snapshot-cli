@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"snapshot-cli/internal/blockstorage"
-	"snapshot-cli/internal/snapshot"
+	"github.com/kengou/snapshot-cli/internal/blockstorage"
+	"github.com/kengou/snapshot-cli/internal/snapshot"
 
 	"github.com/spf13/cobra"
 )
